@@ -2,7 +2,7 @@
     "id": "osirus",
     "name": "Osirus",
     "abbrev": "OS",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "description": "Access Virus DSP56300 emulator (Gearmulator)",
     "author": "dsp56300/gearmulator (port: charlesvestal)",
     "ui": "ui.js",
@@ -29,5 +29,23 @@
         "default_forward_channel": 1,
         "chainable": true,
         "component_type": "sound_generator"
-    }
+    },
+    "chain_params": [
+        {"key": "cutoff", "name": "Cutoff", "type": "int", "min": 0, "max": 127},
+        {"key": "resonance", "name": "Resonance", "type": "int", "min": 0, "max": 127},
+        {"key": "filter_env", "name": "Filt Env Amt", "type": "int", "min": 0, "max": 127},
+        {"key": "flt_attack", "name": "Flt Attack", "type": "int", "min": 0, "max": 127},
+        {"key": "flt_decay", "name": "Flt Decay", "type": "int", "min": 0, "max": 127},
+        {"key": "flt_sustain", "name": "Flt Sustain", "type": "int", "min": 0, "max": 127},
+        {"key": "flt_release", "name": "Flt Release", "type": "int", "min": 0, "max": 127},
+        {"key": "amp_attack", "name": "Amp Attack", "type": "int", "min": 0, "max": 127},
+        {"key": "amp_decay", "name": "Amp Decay", "type": "int", "min": 0, "max": 127},
+        {"key": "amp_sustain", "name": "Amp Sustain", "type": "int", "min": 0, "max": 127},
+        {"key": "amp_release", "name": "Amp Release", "type": "int", "min": 0, "max": 127},
+        {"key": "filter_mode", "name": "Filter Mode", "type": "int", "min": 0, "max": 7},
+        {"key": "osc1_shape", "name": "Osc1 Shape", "type": "int", "min": 0, "max": 127},
+        {"key": "osc2_shape", "name": "Osc2 Shape", "type": "int", "min": 0, "max": 127},
+        {"key": "osc_balance", "name": "Osc Balance", "type": "int", "min": 0, "max": 127},
+        {"key": "patch_volume", "name": "Volume", "type": "int", "min": 0, "max": 127}
+    ]
 }
