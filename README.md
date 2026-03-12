@@ -1,6 +1,6 @@
 # Move Everything: Osirus
 
-Access Virus synthesizer emulation for [Move Everything](https://github.com/charlesvestal/move-anything) on Ableton Move hardware. Named "Osirus" after [Gearmulator's Virus emulation](https://github.com/dsp56300/gearmulator).
+Access Virus synthesizer emulation for [Move Everything](https://github.com/charlesvestal/move-everything) on Ableton Move hardware. Named "Osirus" after [Gearmulator's Virus emulation](https://github.com/dsp56300/gearmulator).
 
 Uses the [Gearmulator](https://github.com/dsp56300/gearmulator) DSP56300 JIT emulator to run the original Virus firmware.
 
