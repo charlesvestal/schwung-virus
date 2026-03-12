@@ -18,7 +18,7 @@
         ],
         "description": "Place Virus A/B/C ROM files here. A runs at full quality; B/C run with reduced DSP clock.",
         "hint": "Upload Virus ROM files (.mid or .BIN format). Multiple ROMs supported — select in Settings menu.",
-        "hint_url": "https://github.com/charlesvestal/move-anything-virus",
+        "hint_url": "https://github.com/charlesvestal/move-everything-virus",
         "hint_url_label": "Read more"
     },
     "capabilities": {
