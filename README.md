@@ -1,6 +1,6 @@
 # Move Everything: Osirus
 
-Access Virus synthesizer emulation for [Move Everything](https://github.com/charlesvestal/move-everything) on Ableton Move hardware. Named "Osirus" after [Gearmulator's Virus emulation](https://github.com/dsp56300/gearmulator).
+Access Virus synthesizer emulation for [Schwung](https://github.com/charlesvestal/move-everything) on Ableton Move hardware. Named "Osirus" after [Gearmulator's Virus emulation](https://github.com/dsp56300/gearmulator).
 
 Uses the [Gearmulator](https://github.com/dsp56300/gearmulator) DSP56300 JIT emulator to run the original Virus firmware.
 
@@ -32,6 +32,8 @@ Example filenames: `First_A_28.mid` (OS + factory presets), `second_A_28.mid` (p
 The loader accepts any `.mid` or `.bin` file in the `roms/` directory. It auto-detects the model (A/B/C) from the firmware version string inside the ROM. Place both the OS file and preset file together — they will be combined automatically. If you have multiple ROMs, you can switch between them in the Settings menu.
 
 Virus B/C ROMs are not supported on Move. The Virus B/C DSP models require more processing power than the Move's Cortex-A72 can provide in real time.
+
+The Schwung version of this emulator does not support additional presets - enjoy the ROM's built-in banks!
 
 ## Architecture
 
