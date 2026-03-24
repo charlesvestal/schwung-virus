@@ -128,7 +128,7 @@ static void plugin_log(const char *fmt, ...) {
 static FILE *g_vlog = nullptr;
 static void vlog(const char *fmt, ...) {
     if (!g_vlog)
-        g_vlog = fopen("/data/UserData/move-anything/virus_debug.log", "a");
+        g_vlog = fopen("/data/UserData/schwung/virus_debug.log", "a");
     if (!g_vlog) return;
     va_list args;
     va_start(args, fmt);
@@ -556,7 +556,7 @@ static virus_shm_t *g_child_shm = nullptr;
 
 static void child_crash_handler(int sig) {
     /* Write crash info to debug log before dying */
-    FILE *f = fopen("/data/UserData/move-anything/virus_debug.log", "a");
+    FILE *f = fopen("/data/UserData/schwung/virus_debug.log", "a");
     if (f) {
         fprintf(f, "[child] CRASHED signal=%d (%s) pid=%d\n",
                 sig, sig == 11 ? "SIGSEGV" : sig == 7 ? "SIGBUS" : sig == 6 ? "SIGABRT" : "?",
