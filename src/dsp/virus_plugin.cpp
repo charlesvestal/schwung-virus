@@ -732,18 +732,11 @@ static void child_main(virus_shm_t *shm) {
     child_build_preset_name_cache(shm, mc, rom);
     child_update_preset_name(shm, mc, rom);
 
-    { /* Initial preset */
-        if (child_use_mc_preset_map(rom)) {
-            virusLib::ROMFile::TPreset single{};
-            if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single))
-                mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
-        } else {
-            synthLib::SMidiEvent bankSel(synthLib::MidiEventSource::Host, 0xB0, 32,
-                                         bank_index_to_midi_lsb(shm->current_bank, shm->bank_count));
-            mc->sendMIDI(bankSel);
-            synthLib::SMidiEvent progChg(synthLib::MidiEventSource::Host, 0xC0, 0, 0);
-            mc->sendMIDI(progChg);
-        }
+    { /* Initial preset — use writeSingle for all models so the EditBuffer
+       * is reliably populated before the emu loop starts producing audio. */
+        virusLib::ROMFile::TPreset single{};
+        if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single))
+            mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
     }
 
     /* 9. Pre-fill ring buffer */
@@ -1154,6 +1147,27 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         int state_version = 1;
         if (json_get_int(val, "state_version", &ival) == 0)
             state_version = ival;
+
+        /* Check ROM first: if it's changing, the child will restart which
+         * resets the MIDI FIFO — so bank/preset/CC MIDI would be lost.
+         * Instead, save the full state as pending and let it re-apply
+         * after the new child boots with the correct ROM. */
+        if (json_get_int(val, "rom_index", &ival) == 0) {
+            if (ival >= 0 && (shm->rom_count == 0 || ival < shm->rom_count) && ival != shm->rom_index) {
+                shm->rom_index = ival;
+                if (inst->pending_state) free(inst->pending_state);
+                inst->pending_state = strdup(val);
+                inst->pending_state_valid = 1;
+                if (shm->child_ready && !inst->boot_thread_running) {
+                    inst->boot_thread_running = 1;
+                    pthread_t t;
+                    pthread_create(&t, nullptr, restart_thread_func, inst);
+                    pthread_detach(t);
+                }
+                return;
+            }
+        }
+
         bool has_preset = false;
         int preset_from_state = 0;
         if (json_get_int(val, "bank", &ival) == 0 && ival >= 0 && ival < shm->bank_count) {
@@ -1179,17 +1193,6 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (json_get_int(val, "dsp_clock", &ival) == 0) {
             if (ival < 10) ival = 10; if (ival > 100) ival = 100;
             shm->dsp_clock_percent = ival;
-        }
-        if (json_get_int(val, "rom_index", &ival) == 0) {
-            if (ival >= 0 && (shm->rom_count == 0 || ival < shm->rom_count) && ival != shm->rom_index) {
-                shm->rom_index = ival;
-                if (shm->child_ready && !inst->boot_thread_running) {
-                    inst->boot_thread_running = 1;
-                    pthread_t t;
-                    pthread_create(&t, nullptr, restart_thread_func, inst);
-                    pthread_detach(t);
-                }
-            }
         }
         if (json_get_int(val, "gain", &ival) == 0) {
             if (ival < 1) ival = 1; if (ival > 100) ival = 100;
