@@ -53,6 +53,7 @@
 #include "virusLib/romloader.h"
 #include "virusLib/deviceModel.h"
 #include "virusLib/midiFileToRomData.h"
+#include "synthLib/midiToSysex.h"
 #include "dsp56kEmu/audio.h"
 #include "dsp56kEmu/semaphore.h"
 #include "synthLib/audioTypes.h"
@@ -1033,47 +1034,30 @@ static int child_load_user_banks(const char *banks_dir) {
     for (const auto &path : mid_files) {
         if (g_user_bank_count >= VIRUS_MAX_USER_BANKS) break;
 
-        virusLib::MidiFileToRomData loader;
-        if (!loader.load(path)) {
-            vlog("[child] failed to parse bank file: %s", path.c_str());
-            continue;
-        }
-        if (!loader.isComplete()) {
-            vlog("[child] incomplete bank file: %s", path.c_str());
-            continue;
-        }
-
-        const auto &data = loader.getData();
-        constexpr size_t PRESET_START = 0x10000;
-        constexpr size_t PRESET_SIZE = 0x100;
-
-        if (data.size() < PRESET_START + PRESET_SIZE) {
-            vlog("[child] bank file too small (%zu bytes): %s", data.size(), path.c_str());
+        /* Extract individual SysEx messages from .mid file.
+         * Each is a DUMP_SINGLE: F0 00 20 33 01 <dev> 10 <bank> <prog> <256 bytes> <chk> F7
+         * Total 267 bytes per message, preset data at offset 9. */
+        synthLib::SysexBufferList sysex_msgs;
+        if (!synthLib::MidiToSysex::extractSysexFromFile(sysex_msgs, path)) {
+            vlog("[child] failed to extract sysex from: %s", path.c_str());
             continue;
         }
 
-        user_bank_t *bank = &g_user_banks[g_user_bank_count];
-        memset(bank, 0, sizeof(user_bank_t));
-        bank->preset_count = 0;
+        user_bank_t *ub = &g_user_banks[g_user_bank_count];
+        memset(ub, 0, sizeof(user_bank_t));
+        ub->preset_count = 0;
 
-        size_t addr = PRESET_START;
-        for (int i = 0; i < VIRUS_MAX_PRESETS_PER_BANK && addr + PRESET_SIZE <= data.size(); i++) {
-            memcpy(bank->presets[i].data(), &data[addr], PRESET_SIZE);
+        for (const auto &msg : sysex_msgs) {
+            if (ub->preset_count >= VIRUS_MAX_PRESETS_PER_BANK) break;
+            /* Validate: must be DUMP_SINGLE (cmd 0x10) and have 256 bytes of preset data */
+            if (msg.size() < 267) continue;
+            if (msg[0] != 0xF0 || msg[6] != 0x10) continue;
 
-            bool valid_name = false;
-            for (int c = 240; c < 250; c++) {
-                if (bank->presets[i][c] >= 32 && bank->presets[i][c] <= 127) {
-                    valid_name = true;
-                    break;
-                }
-            }
-            if (!valid_name && i > 0) break;
-
-            bank->preset_count++;
-            addr += PRESET_SIZE;
+            memcpy(ub->presets[ub->preset_count].data(), &msg[9], 256);
+            ub->preset_count++;
         }
 
-        if (bank->preset_count == 0) {
+        if (ub->preset_count == 0) {
             vlog("[child] no valid presets in: %s", path.c_str());
             continue;
         }
@@ -1082,12 +1066,12 @@ static int child_load_user_banks(const char *banks_dir) {
         fname = fname ? fname + 1 : path.c_str();
         size_t name_len = strlen(fname);
         if (name_len > 4) name_len -= 4;
-        if (name_len > sizeof(bank->name) - 1) name_len = sizeof(bank->name) - 1;
-        memcpy(bank->name, fname, name_len);
-        bank->name[name_len] = '\0';
+        if (name_len > sizeof(ub->name) - 1) name_len = sizeof(ub->name) - 1;
+        memcpy(ub->name, fname, name_len);
+        ub->name[name_len] = '\0';
 
         vlog("[child] loaded user bank '%s': %d presets from %s",
-             bank->name, bank->preset_count, path.c_str());
+             ub->name, ub->preset_count, path.c_str());
         g_user_bank_count++;
     }
 
