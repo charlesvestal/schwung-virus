@@ -488,12 +488,10 @@ static int midi_fifo_free(virus_shm_t *shm) {
 
 static void clear_param_overrides(virus_shm_t *shm) {
     if (!shm) return;
-    for (int i = 0; i < NUM_PARAMS; i++) {
-        if (g_params[i].page == VIRUS_PAGE_A)
-            shm->cc_seen[g_params[i].cc] = 0;
-        else
-            shm->cc_seen_b[g_params[i].cc] = 0;
-    }
+    memset(shm->cc_seen, 0, sizeof(shm->cc_seen));
+    memset(shm->cc_seen_b, 0, sizeof(shm->cc_seen_b));
+    memset((void*)shm->cc_values, 0, sizeof(shm->cc_values));
+    memset((void*)shm->cc_values_b, 0, sizeof(shm->cc_values_b));
 }
 
 static int model_name_to_level(const char *name) {
@@ -697,11 +695,21 @@ static void child_process_midi_fifo(virus_shm_t *shm,
 
         /* Track CC values in shared memory */
         uint8_t status = msg[0] & 0xF0;
+
+        /* Log non-note MIDI in child for debugging */
+        if (status != 0x90 && status != 0x80) {
+            if (len >= 3)
+                vlog("[child-midi] status=0x%02X d1=%d d2=%d", status, msg[1], msg[2]);
+            else if (len >= 2)
+                vlog("[child-midi] status=0x%02X d1=%d", status, msg[1]);
+        }
+
         if (status == 0xB0 && len >= 3) {
             shm->cc_values[msg[1] & 0x7F] = msg[2] & 0x7F;
             shm->cc_seen[msg[1] & 0x7F] = 1;
         }
         if (status == 0xA0 && len >= 3) {
+            vlog("[child-midi] Page B param: cc=%d value=%d", msg[1], msg[2]);
             shm->cc_values_b[msg[1] & 0x7F] = msg[2] & 0x7F;
             shm->cc_seen_b[msg[1] & 0x7F] = 1;
         }
@@ -973,7 +981,9 @@ static void child_main(virus_shm_t *shm) {
 
         /* Enable Page B parameter control via MIDI polypressure.
          * sendInitControlCommands disables this by default; we need it
-         * for full parameter access. */
+         * for full parameter access. Incoming pad polypressure is
+         * converted to channel pressure in v2_on_midi to prevent
+         * aftertouch from corrupting Page B parameters. */
         mc->sendControlCommand(virusLib::MIDI_CONTROL_HIGH_PAGE, 0x1);
     }
     vlog("[child] DSP initialized");
@@ -1371,11 +1381,33 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
 
     uint8_t status = msg[0] & 0xF0;
 
+    /* Log all incoming MIDI for debugging */
+    if (len >= 3)
+        vlog("[midi-in] status=0x%02X d1=%d d2=%d (len=%d)", status, msg[1], msg[2], len);
+    else if (len >= 2)
+        vlog("[midi-in] status=0x%02X d1=%d (len=%d)", status, msg[1], len);
+    else
+        vlog("[midi-in] status=0x%02X (len=%d)", status, len);
+
     /* Apply octave transpose to notes */
     if ((status == 0x90 || status == 0x80) && len >= 2) {
         int note = msg[1] + inst->shm->octave_transpose * 12;
         if (note < 0) note = 0; if (note > 127) note = 127;
         modified[1] = (uint8_t)note;
+    }
+
+    /* Convert polypressure (0xA0) from pads to channel pressure (0xD0).
+     * MIDI_CONTROL_HIGH_PAGE is enabled so the Virus interprets polypressure
+     * as Page B parameter changes. If we forwarded raw pad polypressure, it
+     * would overwrite sound parameters (e.g. amp_velocity at CC 60) and cause
+     * notes to cut out. Channel pressure is handled separately by the Virus
+     * as aftertouch modulation. */
+    if (status == 0xA0 && len >= 3) {
+        uint8_t ch = msg[0] & 0x0F;
+        vlog("[midi-in] converting polypressure ch=%d note=%d pressure=%d -> channel pressure", ch, msg[1], msg[2]);
+        uint8_t cp[2] = { (uint8_t)(0xD0 | ch), msg[2] };
+        midi_fifo_push(inst->shm, cp, 2);
+        return;
     }
 
     /* Track CC values locally too */
