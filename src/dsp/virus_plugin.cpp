@@ -52,6 +52,7 @@
 #include "virusLib/romfile.h"
 #include "virusLib/romloader.h"
 #include "virusLib/deviceModel.h"
+#include "virusLib/midiFileToRomData.h"
 #include "dsp56kEmu/audio.h"
 #include "dsp56kEmu/semaphore.h"
 #include "synthLib/audioTypes.h"
@@ -506,6 +507,7 @@ static const int NUM_PARAMS = sizeof(g_params) / sizeof(g_params[0]);
 static constexpr int VIRUS_MAX_BANKS = 32;
 static constexpr int VIRUS_MAX_PRESETS_PER_BANK = 128;
 static constexpr int VIRUS_PRESET_NAME_BYTES = 24;
+static constexpr int VIRUS_MAX_USER_BANKS = 16;
 
 /* =====================================================================
  * Shared memory structure (parent <-> child process)
@@ -573,6 +575,20 @@ struct virus_shm_t {
     volatile int rom_count;          /* how many ROMs found (child writes) */
     char rom_names[8][64];           /* ROM display names (child writes) */
 };
+
+/* =====================================================================
+ * User preset banks (loaded from .mid files in banks/ folder)
+ * ===================================================================== */
+
+struct user_bank_t {
+    char name[32];
+    virusLib::ROMFile::TPreset presets[128];
+    int preset_count;
+};
+
+static user_bank_t g_user_banks[16];
+static int g_user_bank_count = 0;
+static int g_rom_bank_count = 0;
 
 /* =====================================================================
  * Shared memory ring buffer helpers
@@ -745,6 +761,17 @@ static bool child_get_single_preset(virusLib::Microcontroller *mc,
                                     virusLib::ROMFile::TPreset *out) {
     if (!out || bank < 0 || preset < 0) return false;
 
+    /* Check user banks (appended after ROM banks) */
+    if (bank >= g_rom_bank_count && g_user_bank_count > 0) {
+        int ub = bank - g_rom_bank_count;
+        if (ub >= 0 && ub < g_user_bank_count &&
+            preset < g_user_banks[ub].preset_count) {
+            *out = g_user_banks[ub].presets[preset];
+            return true;
+        }
+        return false;
+    }
+
     if (child_use_mc_preset_map(rom) && mc) {
         const int mapped_bank = child_map_browser_bank_to_mc_bank(rom, bank);
         if (mapped_bank < 0 || mapped_bank >= VIRUS_MAX_BANKS || preset >= VIRUS_MAX_PRESETS_PER_BANK)
@@ -848,8 +875,14 @@ static void child_process_midi_fifo(virus_shm_t *shm,
         if (change_mask != PROGRAM_SELECTION_NONE) {
             shm->current_bank = bank;
             shm->current_preset = preset;
-            if ((change_mask & PROGRAM_SELECTION_BANK_CHANGED) != 0)
-                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + bank);
+            if ((change_mask & PROGRAM_SELECTION_BANK_CHANGED) != 0) {
+                if (bank < g_rom_bank_count)
+                    snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + bank);
+                else if (bank - g_rom_bank_count < g_user_bank_count)
+                    snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "%s", g_user_banks[bank - g_rom_bank_count].name);
+                else
+                    snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %d", bank + 1);
+            }
         }
 
         const bool is_bank_select = (status == 0xB0 && len >= 3 && (msg[1] == 0 || msg[1] == 32));
@@ -972,6 +1005,94 @@ static void child_crash_handler(int sig) {
     }
     signal(sig, SIG_DFL);
     raise(sig);
+}
+
+/* Load user preset banks from .mid SysEx dump files in banks/ directory. */
+static int child_load_user_banks(const char *banks_dir) {
+    g_user_bank_count = 0;
+
+    DIR *dir = opendir(banks_dir);
+    if (!dir) {
+        vlog("[child] no banks/ directory at %s", banks_dir);
+        return 0;
+    }
+
+    std::vector<std::string> mid_files;
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != nullptr) {
+        const char *name = ent->d_name;
+        size_t len = strlen(name);
+        if (len < 5) continue;
+        if (strcasecmp(name + len - 4, ".mid") != 0) continue;
+        mid_files.push_back(std::string(banks_dir) + "/" + name);
+    }
+    closedir(dir);
+
+    std::sort(mid_files.begin(), mid_files.end());
+
+    for (const auto &path : mid_files) {
+        if (g_user_bank_count >= VIRUS_MAX_USER_BANKS) break;
+
+        virusLib::MidiFileToRomData loader;
+        if (!loader.load(path)) {
+            vlog("[child] failed to parse bank file: %s", path.c_str());
+            continue;
+        }
+        if (!loader.isComplete()) {
+            vlog("[child] incomplete bank file: %s", path.c_str());
+            continue;
+        }
+
+        const auto &data = loader.getData();
+        constexpr size_t PRESET_START = 0x10000;
+        constexpr size_t PRESET_SIZE = 0x100;
+
+        if (data.size() < PRESET_START + PRESET_SIZE) {
+            vlog("[child] bank file too small (%zu bytes): %s", data.size(), path.c_str());
+            continue;
+        }
+
+        user_bank_t *bank = &g_user_banks[g_user_bank_count];
+        memset(bank, 0, sizeof(user_bank_t));
+        bank->preset_count = 0;
+
+        size_t addr = PRESET_START;
+        for (int i = 0; i < VIRUS_MAX_PRESETS_PER_BANK && addr + PRESET_SIZE <= data.size(); i++) {
+            memcpy(bank->presets[i].data(), &data[addr], PRESET_SIZE);
+
+            bool valid_name = false;
+            for (int c = 240; c < 250; c++) {
+                if (bank->presets[i][c] >= 32 && bank->presets[i][c] <= 127) {
+                    valid_name = true;
+                    break;
+                }
+            }
+            if (!valid_name && i > 0) break;
+
+            bank->preset_count++;
+            addr += PRESET_SIZE;
+        }
+
+        if (bank->preset_count == 0) {
+            vlog("[child] no valid presets in: %s", path.c_str());
+            continue;
+        }
+
+        const char *fname = strrchr(path.c_str(), '/');
+        fname = fname ? fname + 1 : path.c_str();
+        size_t name_len = strlen(fname);
+        if (name_len > 4) name_len -= 4;
+        if (name_len > sizeof(bank->name) - 1) name_len = sizeof(bank->name) - 1;
+        memcpy(bank->name, fname, name_len);
+        bank->name[name_len] = '\0';
+
+        vlog("[child] loaded user bank '%s': %d presets from %s",
+             bank->name, bank->preset_count, path.c_str());
+        g_user_bank_count++;
+    }
+
+    vlog("[child] loaded %d user bank(s)", g_user_bank_count);
+    return g_user_bank_count;
 }
 
 static void child_main(virus_shm_t *shm) {
@@ -1138,7 +1259,21 @@ static void child_main(virus_shm_t *shm) {
     /* 8. Set up presets */
     shm->bank_count = child_detect_valid_bank_count(
         mc, rom, (int)virusLib::ROMFile::getRomBankCount(rom->getModel()));
+    g_rom_bank_count = shm->bank_count;
     shm->preset_count = rom->getPresetsPerBank();
+
+    /* 8b. Load user preset banks from banks/ directory */
+    {
+        char banks_dir[512];
+        snprintf(banks_dir, sizeof(banks_dir), "%s/banks", shm->module_dir);
+        child_load_user_banks(banks_dir);
+        if (g_user_bank_count > 0) {
+            shm->bank_count = g_rom_bank_count + g_user_bank_count;
+            vlog("[child] total banks: %d ROM + %d user = %d",
+                 g_rom_bank_count, g_user_bank_count, shm->bank_count);
+        }
+    }
+
     shm->current_bank = 0;
     shm->current_preset = 0;
     snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank A");
@@ -1619,7 +1754,12 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         int preset_from_state = 0;
         if (json_get_int(val, "bank", &ival) == 0 && ival >= 0 && ival < shm->bank_count) {
             shm->current_bank = ival;
-            snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + ival);
+            if (ival < g_rom_bank_count)
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + ival);
+            else if (ival - g_rom_bank_count < g_user_bank_count)
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "%s", g_user_banks[ival - g_rom_bank_count].name);
+            else
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %d", ival + 1);
         }
         if (json_get_int(val, "preset", &ival) == 0 && ival >= 0 && ival < shm->preset_count) {
             has_preset = true;
@@ -1684,7 +1824,12 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             clear_param_overrides(shm);
             shm->current_bank = idx;
             shm->current_preset = 0;
-            snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + idx);
+            if (idx < g_rom_bank_count)
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + idx);
+            else if (idx - g_rom_bank_count < g_user_bank_count)
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "%s", g_user_banks[idx - g_rom_bank_count].name);
+            else
+                snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %d", idx + 1);
             uint8_t cc32[3] = { 0xB0, 32, bank_index_to_midi_lsb(idx, shm->bank_count) };
             midi_fifo_push(shm, cc32, 3);
             uint8_t pc[2] = { 0xC0, 0 };
