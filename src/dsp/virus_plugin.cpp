@@ -538,7 +538,7 @@ static void shm_refresh_current_preset_name(virus_shm_t *shm) {
 }
 
 static void midi_fifo_push(virus_shm_t *shm, const uint8_t *msg, int len) {
-    if (len < 1 || len > 16) return;
+    if (len < 1 || len > 8) return;
     if (midi_fifo_free(shm) < len + 1) return; /* drop if full */
     int wr = shm->midi_write;
     shm->midi_buf[wr] = (uint8_t)len;
@@ -559,19 +559,8 @@ static void send_param_midi(virus_shm_t *shm, const virus_param_t *p, int value)
     } else {
         shm->cc_values_b[p->cc] = value;
         shm->cc_seen_b[p->cc] = 1;
-        /* Send Page B params as SysEx parameter change instead of polypressure.
-         * This avoids needing MIDI_CONTROL_HIGH_PAGE which would hijack
-         * polypressure (aftertouch) from the pads. SysEx format:
-         * F0 00 20 33 01 10 71 <part> <param> <value> F7 */
-        uint8_t sysex[11] = {
-            0xF0, 0x00, 0x20, 0x33, 0x01, 0x10,  /* header + OMNI device */
-            0x71,                                  /* PAGE_B */
-            0x40,                                  /* SINGLE part */
-            (uint8_t)p->cc,                        /* param index */
-            (uint8_t)value,                        /* value */
-            0xF7                                   /* end of sysex */
-        };
-        midi_fifo_push(shm, sysex, 11);
+        uint8_t msg[3] = { 0xA0, (uint8_t)p->cc, (uint8_t)value };
+        midi_fifo_push(shm, msg, 3);
     }
 }
 
@@ -720,8 +709,8 @@ static void child_process_midi_fifo(virus_shm_t *shm,
         int rd = shm->midi_read;
         int len = shm->midi_buf[rd];
         rd = (rd + 1) % MIDI_FIFO_SIZE;
-        if (len < 1 || len > 16 || midi_fifo_available(shm) < len + 1) break;
-        uint8_t msg[16];
+        if (len < 1 || len > 8 || midi_fifo_available(shm) < len + 1) break;
+        uint8_t msg[8];
         for (int i = 0; i < len; i++) {
             msg[i] = shm->midi_buf[rd];
             rd = (rd + 1) % MIDI_FIFO_SIZE;
@@ -735,7 +724,10 @@ static void child_process_midi_fifo(virus_shm_t *shm,
             shm->cc_values[msg[1] & 0x7F] = msg[2] & 0x7F;
             shm->cc_seen[msg[1] & 0x7F] = 1;
         }
-        /* Page B params now arrive as SysEx, tracked in send_param_midi */
+        if (status == 0xA0 && len >= 3) {
+            shm->cc_values_b[msg[1] & 0x7F] = msg[2] & 0x7F;
+            shm->cc_seen_b[msg[1] & 0x7F] = 1;
+        }
 
         int bank = shm->current_bank;
         int preset = shm->current_preset;
@@ -768,16 +760,6 @@ static void child_process_midi_fifo(virus_shm_t *shm,
             if ((change_mask & PROGRAM_SELECTION_BANK_CHANGED) != 0)
                 child_update_preset_name(shm, mc, rom);
             processed++;
-            continue;
-        }
-
-        /* Route SysEx (e.g. Page B param changes) through sendSysex */
-        if (status == 0xF0 && len >= 7 && msg[len-1] == 0xF7) {
-            synthLib::SysexBuffer sysex(msg, msg + len);
-            std::vector<synthLib::SMidiEvent> responses;
-            mc->sendSysex(sysex, responses, synthLib::MidiEventSource::Host);
-            /* Don't count param SysEx against rate limit — they're lightweight
-             * and shouldn't delay note-on or aftertouch processing. */
             continue;
         }
 
@@ -1013,10 +995,12 @@ static void child_main(virus_shm_t *shm) {
         for (int i = 0; i < 8; i++)
             dsp1->processAudio(inputs, outputs, BOOT_CHUNK, 0);
 
-        /* MIDI_CONTROL_HIGH_PAGE stays disabled (default from
-         * sendInitControlCommands). Page B params are sent as SysEx
-         * parameter changes, so polypressure passes through to the
-         * DSP as aftertouch without corrupting parameters. */
+        /* Enable Page B parameter control via MIDI polypressure.
+         * sendInitControlCommands disables this by default; we need it
+         * for full parameter access. Incoming pad polypressure is
+         * converted to channel pressure in v2_on_midi to prevent
+         * aftertouch from corrupting Page B parameters. */
+        mc->sendControlCommand(virusLib::MIDI_CONTROL_HIGH_PAGE, 0x1);
     }
     vlog("[child] DSP initialized");
 
