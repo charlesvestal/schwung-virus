@@ -633,6 +633,14 @@ struct virus_shm_t {
     volatile int rom_index;          /* which ROM to load (0-based) */
     volatile int rom_count;          /* how many ROMs found (child writes) */
     char rom_names[8][64];           /* ROM display names (child writes) */
+
+    /* Direct parameter change table (parent writes, child reads & clears).
+     * Uses SysEx→send()→HDI08 path which is the only way the DSP firmware
+     * responds to parameter changes for many params (wave select, etc.). */
+    struct {
+        volatile uint8_t value;
+        volatile uint8_t dirty;
+    } pending_params[256];           /* index = page*128 + cc */
 };
 
 /* =====================================================================
@@ -742,14 +750,16 @@ static void send_param_midi(virus_shm_t *shm, const virus_param_t *p, int value)
     if (p->page == VIRUS_PAGE_A) {
         shm->cc_values[p->cc] = value;
         shm->cc_seen[p->cc] = 1;
-        uint8_t msg[3] = { 0xB0, (uint8_t)p->cc, (uint8_t)value };
-        midi_fifo_push(shm, msg, 3);
     } else {
         shm->cc_values_b[p->cc] = value;
         shm->cc_seen_b[p->cc] = 1;
-        uint8_t msg[3] = { 0xA0, (uint8_t)p->cc, (uint8_t)value };
-        midi_fifo_push(shm, msg, 3);
     }
+    /* Write to shared-memory pending table. Child picks up latest value
+     * once per audio block and sends via SysEx→send()→HDI08 write. */
+    int idx = p->page * 128 + p->cc;
+    shm->pending_params[idx].value = (uint8_t)value;
+    __sync_synchronize();
+    shm->pending_params[idx].dirty = 1;
 }
 
 static int get_param_value(virus_shm_t *shm, const virus_param_t *p) {
@@ -899,6 +909,27 @@ static void child_sync_params_from_preset(virus_shm_t *shm,
 /* Process at most max_msgs MIDI messages per call.
  * Rate-limiting spreads note-on voice allocation across emu blocks,
  * preventing DSP cycle bursts that cause audio dropouts. */
+/* Drain pending parameter changes from shared memory.
+ * Called once per emu loop iteration. Only dirty params are sent. */
+static void child_drain_pending_params(virus_shm_t *shm,
+                                       virusLib::Microcontroller *mc) {
+    if (!shm || !mc) return;
+    for (int i = 0; i < 256; i++) {
+        if (!shm->pending_params[i].dirty) continue;
+        shm->pending_params[i].dirty = 0;
+        __sync_synchronize();
+        uint8_t page = 0x70 + (i / 128);  /* PAGE_A=0x70, PAGE_B=0x71 */
+        uint8_t cc = i & 0x7F;
+        uint8_t val = shm->pending_params[i].value;
+        synthLib::SysexBuffer sysex = {
+            0xF0, 0x00, 0x20, 0x33, 0x01, virusLib::OMNI_DEVICE_ID,
+            page, 0x00 /* part 0 — DSP expects 0 in single mode */, cc, val, 0xF7
+        };
+        std::vector<synthLib::SMidiEvent> responses;
+        mc->sendSysex(sysex, responses, synthLib::MidiEventSource::Host);
+    }
+}
+
 static void child_process_midi_fifo(virus_shm_t *shm,
                                     virusLib::Microcontroller *mc,
                                     virusLib::ROMFile *rom,
@@ -1368,6 +1399,7 @@ static void child_main(virus_shm_t *shm) {
     notify_timeout.store(0);
     snprintf((char*)shm->loading_status, sizeof(shm->loading_status),
              "Ready: %d banks, %d presets/bank", shm->bank_count, shm->preset_count);
+    memset((void*)shm->pending_params, 0, sizeof(shm->pending_params));
     vlog("[child] READY! entering emu loop");
 
     /* === Emu loop (runs until shutdown) === */
@@ -1380,6 +1412,7 @@ static void child_main(virus_shm_t *shm) {
         while (!shm->child_shutdown) {
             /* Process incoming MIDI from parent */
             child_process_midi_fifo(shm, mc, rom);
+            child_drain_pending_params(shm, mc);
 
             /* Throttle: don't let ring fill beyond target (keeps latency low) */
             if (shm_ring_available(shm) >= RING_TARGET_FILL) {
