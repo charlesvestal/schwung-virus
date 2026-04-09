@@ -689,6 +689,25 @@ static int child_detect_valid_bank_count(virusLib::Microcontroller *mc,
                                          virusLib::ROMFile *rom,
                                          int fallback_bank_count);
 
+/* Populate cc_values / cc_values_b from preset data so the UI
+ * reflects the actual preset values after a program change.
+ * Preset layout: Page A = bytes 0-127, Page B = bytes 128-255. */
+static void child_sync_params_from_preset(virus_shm_t *shm,
+                                          const virusLib::ROMFile::TPreset &single) {
+    for (int i = 0; i < NUM_PARAMS; i++) {
+        int offset = g_params[i].page == VIRUS_PAGE_A
+            ? g_params[i].cc
+            : g_params[i].cc + 128;
+        int val = single[offset];
+        if (val < g_params[i].min_val) val = g_params[i].min_val;
+        if (val > g_params[i].max_val) val = g_params[i].max_val;
+        if (g_params[i].page == VIRUS_PAGE_A)
+            shm->cc_values[g_params[i].cc] = val;
+        else
+            shm->cc_values_b[g_params[i].cc] = val;
+    }
+}
+
 /* Process at most max_msgs MIDI messages per call.
  * Rate-limiting spreads note-on voice allocation across emu blocks,
  * preventing DSP cycle bursts that cause audio dropouts. */
@@ -737,6 +756,7 @@ static void child_process_midi_fifo(virus_shm_t *shm,
             virusLib::ROMFile::TPreset single{};
             if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single)) {
                 mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
+                child_sync_params_from_preset(shm, single);
             }
             child_update_preset_name(shm, mc, rom);
             processed++;
@@ -1031,8 +1051,10 @@ static void child_main(virus_shm_t *shm) {
     { /* Initial preset — use writeSingle for all models so the EditBuffer
        * is reliably populated before the emu loop starts producing audio. */
         virusLib::ROMFile::TPreset single{};
-        if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single))
+        if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single)) {
             mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
+            child_sync_params_from_preset(shm, single);
+        }
     }
 
     /* 9. Pre-fill ring buffer */
