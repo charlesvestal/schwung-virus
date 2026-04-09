@@ -2,51 +2,62 @@
     "id": "osirus",
     "name": "Osirus",
     "abbrev": "OS",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Access Virus DSP56300 emulator (Gearmulator)",
     "author": "dsp56300/gearmulator (port: charlesvestal)",
     "ui": "ui.js",
     "dsp": "dsp.so",
     "api_version": 2,
-    "assets": {
-        "path": "roms",
-        "label": "ROMs",
-        "extensions": [
-            ".mid",
-            ".bin",
-            ".BIN"
-        ],
-        "description": "Requires at least one Virus ROM. Virus A needs both .mid files; B or C need one .BIN file.",
-        "hint": "Virus A runs at full DSP quality. B/C run at reduced clock (50% default). Multiple ROMs supported — select in Settings.",
-        "hint_url": "https://github.com/charlesvestal/schwung-virus",
-        "hint_url_label": "Read more",
-        "files": [
-            {
-                "filename": "virus_a_firmware.mid",
-                "label": "Virus A firmware (First_A_28.mid)",
-                "size": 514611,
-                "required": false
-            },
-            {
-                "filename": "virus_a_presets.mid",
-                "label": "Virus A presets (second_A_28.mid)",
-                "size": 514611,
-                "required": false
-            },
-            {
-                "filename": "virus_b.BIN",
-                "label": "Virus B firmware (Access Virus B (am29f040b_4v9).BIN)",
-                "size": 524288,
-                "required": false
-            },
-            {
-                "filename": "virus_c.BIN",
-                "label": "Virus C firmware (Access Virus C (am29f040b_6v6).BIN)",
-                "size": 524288,
-                "required": false
-            }
-        ]
-    },
+    "assets": [
+        {
+            "path": "roms",
+            "label": "ROMs",
+            "extensions": [
+                ".mid",
+                ".bin",
+                ".BIN"
+            ],
+            "description": "Requires at least one Virus ROM. Virus A needs both .mid files; B or C need one .BIN file.",
+            "hint": "Virus A runs at full DSP quality. B/C run at reduced clock (50% default). Multiple ROMs supported — select in Settings.",
+            "hint_url": "https://github.com/charlesvestal/schwung-virus",
+            "hint_url_label": "Read more",
+            "files": [
+                {
+                    "filename": "virus_a_firmware.mid",
+                    "label": "Virus A firmware (First_A_28.mid)",
+                    "size": 514611,
+                    "required": false
+                },
+                {
+                    "filename": "virus_a_presets.mid",
+                    "label": "Virus A presets (second_A_28.mid)",
+                    "size": 514611,
+                    "required": false
+                },
+                {
+                    "filename": "virus_b.BIN",
+                    "label": "Virus B firmware (Access Virus B (am29f040b_4v9).BIN)",
+                    "size": 524288,
+                    "required": false
+                },
+                {
+                    "filename": "virus_c.BIN",
+                    "label": "Virus C firmware (Access Virus C (am29f040b_6v6).BIN)",
+                    "size": 524288,
+                    "required": false
+                }
+            ]
+        },
+        {
+            "path": "banks",
+            "label": "Preset Banks",
+            "extensions": [
+                ".mid"
+            ],
+            "description": "Optional .mid SysEx preset bank files. Appear as additional banks after ROM banks.",
+            "optional": true
+        }
+    ],
     "capabilities": {
         "audio_out": true,
         "audio_in": false,
