@@ -151,6 +151,117 @@ static void vlog(const char *fmt, ...) {
 #define VIRUS_MODEL_BC  1
 #define VIRUS_MODEL_C   2
 
+/* =====================================================================
+ * Enum option labels (from parameterDescriptions_C.json)
+ * ===================================================================== */
+
+static const char *opts_filter1_mode[] = {
+    "LowPass", "HighPass", "BandPass", "BandStop",
+    "Analog 1P", "Analog 2P", "Analog 3P", "Analog 4P"
+};
+static const char *opts_filter2_mode[] = {
+    "LowPass", "HighPass", "BandPass", "BandStop"
+};
+static const char *opts_filter_routing[] = {
+    "Serial 4", "Serial 6", "Parallel 4", "Split"
+};
+static const char *opts_filter_select[] = {
+    "Filter 1", "Filter 2", "Filter 1+2"
+};
+static const char *opts_sat_curve[] = {
+    "Off", "Light", "Soft", "Middle", "Hard", "Digital",
+    "Shaper", "Rectifier", "BitReducer", "RateReducer",
+    "Rate+Flw", "LowPass", "Low+Flw", "HighPass", "High+Flw"
+};
+static const char *opts_dist_curve[] = {
+    "Off", "Light", "Soft", "Middle", "Hard", "Digital",
+    "Shaper", "Rectifier", "BitReducer", "RateReducer",
+    "LowPass", "HighPass"
+};
+static const char *opts_key_mode[] = {
+    "Poly", "Mono 1", "Mono 2", "Mono 3", "Mono 4", "Hold"
+};
+static const char *opts_unison_mode[] = {
+    "Off", "Twin", "3", "4", "5", "6", "7", "8",
+    "9", "10", "11", "12", "13", "14", "15", "16"
+};
+static const char *opts_input_mode[] = {
+    "Off", "Dynamic", "Static", "To Effects"
+};
+static const char *opts_delay_reverb_mode[] = {
+    "Off", "Delay", "Reverb", "Rev+Fb1", "Rev+Fb2",
+    "Dly 2:1", "Dly 4:3", "Dly 4:1", "Dly 8:7",
+    "Pat 1+1", "Pat 2+1", "Pat 3+1", "Pat 4+1", "Pat 5+1",
+    "Pat 2+3", "Pat 2+5", "Pat 3+2", "Pat 3+3", "Pat 3+4",
+    "Pat 3+5", "Pat 4+3", "Pat 4+5", "Pat 5+2", "Pat 5+3",
+    "Pat 5+4", "Pat 5+5", "Pat X+Y"
+};
+static const char *opts_delay_lfo_shape[] = {
+    "Sine", "Triangle", "Saw", "Square", "S&H", "S&G"
+};
+static const char *opts_arp_mode[] = {
+    "Off", "Up", "Down", "Up&Down", "As Played", "Random", "Chord"
+};
+static const char *opts_arp_octaves[] = { "1", "2", "3", "4" };
+static const char *opts_off_on[] = { "Off", "On" };
+static const char *opts_lfo_mode[] = { "Poly", "Mono" };
+static const char *opts_lfo3_dest[] = {
+    "Osc1", "Osc1+2", "Osc2", "PW1", "PW1+2", "PW2"
+};
+static const char *opts_sub_osc_shape[] = { "Square", "Triangle" };
+static const char *opts_osc_fm_mode[] = {
+    "Pos-Tri", "Tri", "Wave", "Noise",
+    "In L", "In L+R", "In R",
+    "Aux1 L", "Aux1 L+R", "Aux1 R",
+    "Aux2 L", "Aux2 L+R", "Aux2 R"
+};
+static const char *opts_env_polarity[] = { "Negative", "Positive" };
+static const char *opts_mod_source[] = {
+    "Off", "PitchBnd", "ChanPres", "ModWheel", "Breath",
+    "Contr 3", "Foot", "Data", "Balance", "Contr 9",
+    "Express", "Contr 12", "Contr 13", "Contr 14", "Contr 15",
+    "Contr 16", "HoldPed", "PortaSw", "SostPed",
+    "AmpEnv", "FiltEnv", "Lfo 1", "Lfo 2", "Lfo 3",
+    "VeloOn", "VeloOff", "KeyFlw", "Random"
+};
+static const char *opts_phaser_mode[] = {
+    "Off", "1 Stage", "2 Stages", "3 Stages",
+    "4 Stages", "5 Stages", "6 Stages"
+};
+static const char *opts_input_follower[] = {
+    "Off", "In L", "In L+R", "In R",
+    "Aux1 L", "Aux1 L+R", "Aux1 R",
+    "Aux2 L", "Aux2 L+R", "Aux2 R"
+};
+static const char *opts_vocoder_mode[] = {
+    "Off", "Oscillator", "Osc Hold", "Noise",
+    "In L", "In L+R", "In R",
+    "Aux1 L", "Aux1 L+R", "Aux1 R",
+    "Aux2 L", "Aux2 L+R", "Aux2 R"
+};
+static const char *opts_music_div[] = {
+    "Off", "1/64", "1/32", "1/16", "1/8", "1/4", "1/2",
+    "3/64", "3/32", "3/16", "3/8",
+    "1/24", "1/12", "1/6", "1/3", "2/3", "3/4",
+    "1/1", "2/1", "4/1", "8/1", "16/1"
+};
+static const char *opts_osc_wave[] = {
+    "Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6",
+    "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12",
+    "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18",
+    "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24",
+    "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30",
+    "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36",
+    "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42",
+    "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48",
+    "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54",
+    "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60",
+    "Wave 61", "Wave 62", "Wave 63", "Wave 64"
+};
+
+#define OPTS(arr) arr, (int)(sizeof(arr)/sizeof(arr[0]))
+#define NO_OPTS NULL, 0
+
 struct virus_param_t {
     const char *key;
     const char *name;
@@ -159,235 +270,237 @@ struct virus_param_t {
     int min_val;
     int max_val;
     int model_min;  /* VIRUS_MODEL_ALL, VIRUS_MODEL_BC, or VIRUS_MODEL_C */
+    const char **options;   /* NULL if not an enum */
+    int num_options;        /* 0 if not an enum */
 };
 
 static const virus_param_t g_params[] = {
-    /* ── Page A: Oscillators ── */
-    {"osc1_shape",           "Osc1 Shape",       VIRUS_PAGE_A, 17, 0, 127, VIRUS_MODEL_ALL},
-    {"osc1_pulsewidth",      "Osc1 PW",          VIRUS_PAGE_A, 18, 0, 127, VIRUS_MODEL_ALL},
-    {"osc1_wave_select",     "Osc1 Wave",        VIRUS_PAGE_A, 19, 0,  63, VIRUS_MODEL_ALL},
-    {"osc1_semitone",        "Osc1 Semi",        VIRUS_PAGE_A, 20, 16,112, VIRUS_MODEL_ALL},
-    {"osc1_keyfollow",       "Osc1 KeyFlw",      VIRUS_PAGE_A, 21, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_shape",           "Osc2 Shape",       VIRUS_PAGE_A, 22, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_pulsewidth",      "Osc2 PW",          VIRUS_PAGE_A, 23, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_wave_select",     "Osc2 Wave",        VIRUS_PAGE_A, 24, 0,  63, VIRUS_MODEL_ALL},
-    {"osc2_semitone",        "Osc2 Semi",        VIRUS_PAGE_A, 25, 16,112, VIRUS_MODEL_ALL},
-    {"osc2_detune",          "Osc2 Detune",      VIRUS_PAGE_A, 26, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_fm_amount",       "Osc2 FM Amt",      VIRUS_PAGE_A, 27, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_sync",            "Osc2 Sync",        VIRUS_PAGE_A, 28, 0,   1, VIRUS_MODEL_ALL},
-    {"osc2_filt_env_amt",    "Osc2 FiltEnv",     VIRUS_PAGE_A, 29, 0, 127, VIRUS_MODEL_ALL},
-    {"fm_filt_env_amt",      "FM FiltEnv",       VIRUS_PAGE_A, 30, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_keyfollow",       "Osc2 KeyFlw",      VIRUS_PAGE_A, 31, 0, 127, VIRUS_MODEL_ALL},
-    {"osc_balance",          "Osc Balance",      VIRUS_PAGE_A, 33, 0, 127, VIRUS_MODEL_ALL},
-    {"sub_osc_volume",       "Sub Volume",       VIRUS_PAGE_A, 34, 0, 127, VIRUS_MODEL_ALL},
-    {"sub_osc_shape",        "Sub Shape",        VIRUS_PAGE_A, 35, 0,   1, VIRUS_MODEL_ALL},
-    {"osc_mainvolume",       "Osc Volume",       VIRUS_PAGE_A, 36, 0, 127, VIRUS_MODEL_ALL},
-    {"noise_volume",         "Noise Vol",        VIRUS_PAGE_A, 37, 0, 127, VIRUS_MODEL_ALL},
-    {"ringmod_volume",       "Ring Mod Vol",     VIRUS_PAGE_A, 38, 0, 127, VIRUS_MODEL_ALL},
-    {"noise_color",          "Noise Color",      VIRUS_PAGE_A, 39, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: Oscillators */
+    {"osc1_shape",           "Osc1 Shape",       VIRUS_PAGE_A, 17, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc1_pulsewidth",      "Osc1 PW",          VIRUS_PAGE_A, 18, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc1_wave_select",     "Osc1 Wave",        VIRUS_PAGE_A, 19, 0,  63, VIRUS_MODEL_ALL, OPTS(opts_osc_wave)},
+    {"osc1_semitone",        "Osc1 Semi",        VIRUS_PAGE_A, 20, 16,112, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc1_keyfollow",       "Osc1 KeyFlw",      VIRUS_PAGE_A, 21, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_shape",           "Osc2 Shape",       VIRUS_PAGE_A, 22, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_pulsewidth",      "Osc2 PW",          VIRUS_PAGE_A, 23, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_wave_select",     "Osc2 Wave",        VIRUS_PAGE_A, 24, 0,  63, VIRUS_MODEL_ALL, OPTS(opts_osc_wave)},
+    {"osc2_semitone",        "Osc2 Semi",        VIRUS_PAGE_A, 25, 16,112, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_detune",          "Osc2 Detune",      VIRUS_PAGE_A, 26, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_fm_amount",       "Osc2 FM Amt",      VIRUS_PAGE_A, 27, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_sync",            "Osc2 Sync",        VIRUS_PAGE_A, 28, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
+    {"osc2_filt_env_amt",    "Osc2 FiltEnv",     VIRUS_PAGE_A, 29, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"fm_filt_env_amt",      "FM FiltEnv",       VIRUS_PAGE_A, 30, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_keyfollow",       "Osc2 KeyFlw",      VIRUS_PAGE_A, 31, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc_balance",          "Osc Balance",      VIRUS_PAGE_A, 33, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"sub_osc_volume",       "Sub Volume",       VIRUS_PAGE_A, 34, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"sub_osc_shape",        "Sub Shape",        VIRUS_PAGE_A, 35, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_sub_osc_shape)},
+    {"osc_mainvolume",       "Osc Volume",       VIRUS_PAGE_A, 36, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"noise_volume",         "Noise Vol",        VIRUS_PAGE_A, 37, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"ringmod_volume",       "Ring Mod Vol",     VIRUS_PAGE_A, 38, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"noise_color",          "Noise Color",      VIRUS_PAGE_A, 39, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: Filters ── */
-    {"cutoff",               "Cutoff",           VIRUS_PAGE_A, 40, 0, 127, VIRUS_MODEL_ALL},
-    {"cutoff2_offset",       "Cutoff2 Ofs",      VIRUS_PAGE_A, 41, 0, 127, VIRUS_MODEL_ALL},
-    {"filter1_resonance",    "Filt1 Reso",       VIRUS_PAGE_A, 42, 0, 127, VIRUS_MODEL_ALL},
-    {"filter2_resonance",    "Filt2 Reso",       VIRUS_PAGE_A, 43, 0, 127, VIRUS_MODEL_ALL},
-    {"filter1_env_amt",      "Filt1 EnvAmt",     VIRUS_PAGE_A, 44, 0, 127, VIRUS_MODEL_ALL},
-    {"filter2_env_amt",      "Filt2 EnvAmt",     VIRUS_PAGE_A, 45, 0, 127, VIRUS_MODEL_ALL},
-    {"filter1_keyfollow",    "Filt1 KeyFlw",     VIRUS_PAGE_A, 46, 0, 127, VIRUS_MODEL_ALL},
-    {"filter2_keyfollow",    "Filt2 KeyFlw",     VIRUS_PAGE_A, 47, 0, 127, VIRUS_MODEL_ALL},
-    {"filter_balance",       "Filt Balance",     VIRUS_PAGE_A, 48, 0, 127, VIRUS_MODEL_ALL},
-    {"saturation_curve",     "Saturation",       VIRUS_PAGE_A, 49, 0,  14, VIRUS_MODEL_ALL},
-    {"filter1_mode",         "Filt1 Mode",       VIRUS_PAGE_A, 51, 0,   7, VIRUS_MODEL_ALL},
-    {"filter2_mode",         "Filt2 Mode",       VIRUS_PAGE_A, 52, 0,   3, VIRUS_MODEL_ALL},
-    {"filter_routing",       "Filt Routing",     VIRUS_PAGE_A, 53, 0,   3, VIRUS_MODEL_ALL},
+    /* Page A: Filters */
+    {"cutoff",               "Cutoff",           VIRUS_PAGE_A, 40, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"cutoff2_offset",       "Cutoff2 Ofs",      VIRUS_PAGE_A, 41, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter1_resonance",    "Filt1 Reso",       VIRUS_PAGE_A, 42, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter2_resonance",    "Filt2 Reso",       VIRUS_PAGE_A, 43, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter1_env_amt",      "Filt1 EnvAmt",     VIRUS_PAGE_A, 44, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter2_env_amt",      "Filt2 EnvAmt",     VIRUS_PAGE_A, 45, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter1_keyfollow",    "Filt1 KeyFlw",     VIRUS_PAGE_A, 46, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter2_keyfollow",    "Filt2 KeyFlw",     VIRUS_PAGE_A, 47, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter_balance",       "Filt Balance",     VIRUS_PAGE_A, 48, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"saturation_curve",     "Saturation",       VIRUS_PAGE_A, 49, 0,  14, VIRUS_MODEL_ALL, OPTS(opts_sat_curve)},
+    {"filter1_mode",         "Filt1 Mode",       VIRUS_PAGE_A, 51, 0,   7, VIRUS_MODEL_ALL, OPTS(opts_filter1_mode)},
+    {"filter2_mode",         "Filt2 Mode",       VIRUS_PAGE_A, 52, 0,   3, VIRUS_MODEL_ALL, OPTS(opts_filter2_mode)},
+    {"filter_routing",       "Filt Routing",     VIRUS_PAGE_A, 53, 0,   3, VIRUS_MODEL_ALL, OPTS(opts_filter_routing)},
 
-    /* ── Page A: Filter Envelope ── */
-    {"flt_attack",           "Flt Attack",       VIRUS_PAGE_A, 54, 0, 127, VIRUS_MODEL_ALL},
-    {"flt_decay",            "Flt Decay",        VIRUS_PAGE_A, 55, 0, 127, VIRUS_MODEL_ALL},
-    {"flt_sustain",          "Flt Sustain",      VIRUS_PAGE_A, 56, 0, 127, VIRUS_MODEL_ALL},
-    {"flt_sustain_time",     "Flt Sus Time",     VIRUS_PAGE_A, 57, 0, 127, VIRUS_MODEL_ALL},
-    {"flt_release",          "Flt Release",      VIRUS_PAGE_A, 58, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: Filter Envelope */
+    {"flt_attack",           "Flt Attack",       VIRUS_PAGE_A, 54, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt_decay",            "Flt Decay",        VIRUS_PAGE_A, 55, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt_sustain",          "Flt Sustain",      VIRUS_PAGE_A, 56, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt_sustain_time",     "Flt Sus Time",     VIRUS_PAGE_A, 57, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt_release",          "Flt Release",      VIRUS_PAGE_A, 58, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: Amp Envelope ── */
-    {"amp_attack",           "Amp Attack",       VIRUS_PAGE_A, 59, 0, 127, VIRUS_MODEL_ALL},
-    {"amp_decay",            "Amp Decay",        VIRUS_PAGE_A, 60, 0, 127, VIRUS_MODEL_ALL},
-    {"amp_sustain",          "Amp Sustain",      VIRUS_PAGE_A, 61, 0, 127, VIRUS_MODEL_ALL},
-    {"amp_sustain_time",     "Amp Sus Time",     VIRUS_PAGE_A, 62, 0, 127, VIRUS_MODEL_ALL},
-    {"amp_release",          "Amp Release",      VIRUS_PAGE_A, 63, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: Amp Envelope */
+    {"amp_attack",           "Amp Attack",       VIRUS_PAGE_A, 59, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"amp_decay",            "Amp Decay",        VIRUS_PAGE_A, 60, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"amp_sustain",          "Amp Sustain",      VIRUS_PAGE_A, 61, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"amp_sustain_time",     "Amp Sus Time",     VIRUS_PAGE_A, 62, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"amp_release",          "Amp Release",      VIRUS_PAGE_A, 63, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: LFO 1 ── */
-    {"lfo1_rate",            "LFO1 Rate",        VIRUS_PAGE_A, 67, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo1_shape",           "LFO1 Shape",       VIRUS_PAGE_A, 68, 0,  67, VIRUS_MODEL_ALL},
-    {"lfo1_env_mode",        "LFO1 Env Mode",    VIRUS_PAGE_A, 69, 0,   1, VIRUS_MODEL_ALL},
-    {"lfo1_mode",            "LFO1 Mode",        VIRUS_PAGE_A, 70, 0,   1, VIRUS_MODEL_ALL},
-    {"lfo1_symmetry",        "LFO1 Symmetry",    VIRUS_PAGE_A, 71, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo1_keyfollow",       "LFO1 KeyFlw",      VIRUS_PAGE_A, 72, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo1_keytrigger",      "LFO1 KeyTrig",     VIRUS_PAGE_A, 73, 0, 127, VIRUS_MODEL_ALL},
-    {"osc1_lfo1_amount",     "Osc1 LFO1",        VIRUS_PAGE_A, 74, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_lfo1_amount",     "Osc2 LFO1",        VIRUS_PAGE_A, 75, 0, 127, VIRUS_MODEL_ALL},
-    {"pw_lfo1_amount",       "PW LFO1",          VIRUS_PAGE_A, 76, 0, 127, VIRUS_MODEL_ALL},
-    {"reso_lfo1_amount",     "Reso LFO1",        VIRUS_PAGE_A, 77, 0, 127, VIRUS_MODEL_ALL},
-    {"filtgain_lfo1_amount", "FiltGain LFO1",    VIRUS_PAGE_A, 78, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: LFO 1 */
+    {"lfo1_rate",            "LFO1 Rate",        VIRUS_PAGE_A, 67, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_shape",           "LFO1 Shape",       VIRUS_PAGE_A, 68, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_env_mode",        "LFO1 Env Mode",    VIRUS_PAGE_A, 69, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
+    {"lfo1_mode",            "LFO1 Mode",        VIRUS_PAGE_A, 70, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
+    {"lfo1_symmetry",        "LFO1 Symmetry",    VIRUS_PAGE_A, 71, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_keyfollow",       "LFO1 KeyFlw",      VIRUS_PAGE_A, 72, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_keytrigger",      "LFO1 KeyTrig",     VIRUS_PAGE_A, 73, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc1_lfo1_amount",     "Osc1 LFO1",        VIRUS_PAGE_A, 74, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_lfo1_amount",     "Osc2 LFO1",        VIRUS_PAGE_A, 75, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"pw_lfo1_amount",       "PW LFO1",          VIRUS_PAGE_A, 76, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"reso_lfo1_amount",     "Reso LFO1",        VIRUS_PAGE_A, 77, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filtgain_lfo1_amount", "FiltGain LFO1",    VIRUS_PAGE_A, 78, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: LFO 2 ── */
-    {"lfo2_rate",            "LFO2 Rate",        VIRUS_PAGE_A, 79, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo2_shape",           "LFO2 Shape",       VIRUS_PAGE_A, 80, 0,  67, VIRUS_MODEL_ALL},
-    {"lfo2_env_mode",        "LFO2 Env Mode",    VIRUS_PAGE_A, 81, 0,   1, VIRUS_MODEL_ALL},
-    {"lfo2_mode",            "LFO2 Mode",        VIRUS_PAGE_A, 82, 0,   1, VIRUS_MODEL_ALL},
-    {"lfo2_symmetry",        "LFO2 Symmetry",    VIRUS_PAGE_A, 83, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo2_keyfollow",       "LFO2 KeyFlw",      VIRUS_PAGE_A, 84, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo2_keytrigger",      "LFO2 KeyTrig",     VIRUS_PAGE_A, 85, 0, 127, VIRUS_MODEL_ALL},
-    {"shape_lfo2_amount",    "Shape LFO2",       VIRUS_PAGE_A, 86, 0, 127, VIRUS_MODEL_ALL},
-    {"fm_lfo2_amount",       "FM LFO2",          VIRUS_PAGE_A, 87, 0, 127, VIRUS_MODEL_ALL},
-    {"cutoff1_lfo2_amount",  "Cut1 LFO2",        VIRUS_PAGE_A, 88, 0, 127, VIRUS_MODEL_ALL},
-    {"cutoff2_lfo2_amount",  "Cut2 LFO2",        VIRUS_PAGE_A, 89, 0, 127, VIRUS_MODEL_ALL},
-    {"pan_lfo2_amount",      "Pan LFO2",         VIRUS_PAGE_A, 90, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: LFO 2 */
+    {"lfo2_rate",            "LFO2 Rate",        VIRUS_PAGE_A, 79, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_shape",           "LFO2 Shape",       VIRUS_PAGE_A, 80, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_env_mode",        "LFO2 Env Mode",    VIRUS_PAGE_A, 81, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
+    {"lfo2_mode",            "LFO2 Mode",        VIRUS_PAGE_A, 82, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
+    {"lfo2_symmetry",        "LFO2 Symmetry",    VIRUS_PAGE_A, 83, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_keyfollow",       "LFO2 KeyFlw",      VIRUS_PAGE_A, 84, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_keytrigger",      "LFO2 KeyTrig",     VIRUS_PAGE_A, 85, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"shape_lfo2_amount",    "Shape LFO2",       VIRUS_PAGE_A, 86, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"fm_lfo2_amount",       "FM LFO2",          VIRUS_PAGE_A, 87, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"cutoff1_lfo2_amount",  "Cut1 LFO2",        VIRUS_PAGE_A, 88, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"cutoff2_lfo2_amount",  "Cut2 LFO2",        VIRUS_PAGE_A, 89, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"pan_lfo2_amount",      "Pan LFO2",         VIRUS_PAGE_A, 90, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: Output & Performance ── */
-    {"patch_volume",         "Volume",           VIRUS_PAGE_A, 91, 0, 127, VIRUS_MODEL_ALL},
-    {"panorama",             "Panorama",         VIRUS_PAGE_A, 10, 0, 127, VIRUS_MODEL_ALL},
-    {"transpose",            "Transpose",        VIRUS_PAGE_A, 93, 0, 127, VIRUS_MODEL_ALL},
-    {"key_mode",             "Key Mode",         VIRUS_PAGE_A, 94, 0,   5, VIRUS_MODEL_ALL},
-    {"unison_mode",          "Unison Mode",      VIRUS_PAGE_A, 97, 0,  15, VIRUS_MODEL_ALL},
-    {"unison_detune",        "Unison Detune",    VIRUS_PAGE_A, 98, 0, 127, VIRUS_MODEL_ALL},
-    {"unison_pan_spread",    "Unison Pan",       VIRUS_PAGE_A, 99, 0, 127, VIRUS_MODEL_ALL},
-    {"unison_lfo_phase",     "Unison LFO Ph",    VIRUS_PAGE_A,100, 0, 127, VIRUS_MODEL_ALL},
-    {"input_mode",           "Input Mode",       VIRUS_PAGE_A,101, 0,   3, VIRUS_MODEL_ALL},
-    {"portamento_time",      "Portamento",       VIRUS_PAGE_A,  5, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: Output & Performance */
+    {"patch_volume",         "Volume",           VIRUS_PAGE_A, 91, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"panorama",             "Panorama",         VIRUS_PAGE_A, 10, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"transpose",            "Transpose",        VIRUS_PAGE_A, 93, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"key_mode",             "Key Mode",         VIRUS_PAGE_A, 94, 0,   5, VIRUS_MODEL_ALL, OPTS(opts_key_mode)},
+    {"unison_mode",          "Unison Mode",      VIRUS_PAGE_A, 97, 0,  15, VIRUS_MODEL_ALL, OPTS(opts_unison_mode)},
+    {"unison_detune",        "Unison Detune",    VIRUS_PAGE_A, 98, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"unison_pan_spread",    "Unison Pan",       VIRUS_PAGE_A, 99, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"unison_lfo_phase",     "Unison LFO Ph",    VIRUS_PAGE_A,100, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"input_mode",           "Input Mode",       VIRUS_PAGE_A,101, 0,   3, VIRUS_MODEL_ALL, OPTS(opts_input_mode)},
+    {"portamento_time",      "Portamento",       VIRUS_PAGE_A,  5, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: Chorus ── */
-    {"chorus_mix",           "Chorus Mix",       VIRUS_PAGE_A,105, 0, 127, VIRUS_MODEL_ALL},
-    {"chorus_rate",          "Chorus Rate",      VIRUS_PAGE_A,106, 0, 127, VIRUS_MODEL_ALL},
-    {"chorus_depth",         "Chorus Depth",     VIRUS_PAGE_A,107, 0, 127, VIRUS_MODEL_ALL},
-    {"chorus_delay",         "Chorus Delay",     VIRUS_PAGE_A,108, 0, 127, VIRUS_MODEL_ALL},
-    {"chorus_feedback",      "Chorus Fdbk",      VIRUS_PAGE_A,109, 0, 127, VIRUS_MODEL_ALL},
-    {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL},
+    /* Page A: Chorus */
+    {"chorus_mix",           "Chorus Mix",       VIRUS_PAGE_A,105, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_rate",          "Chorus Rate",      VIRUS_PAGE_A,106, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_depth",         "Chorus Depth",     VIRUS_PAGE_A,107, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_delay",         "Chorus Delay",     VIRUS_PAGE_A,108, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_feedback",      "Chorus Fdbk",      VIRUS_PAGE_A,109, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page A: Delay / Reverb ── */
-    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_ALL},
-    {"effect_send",          "Effect Send",      VIRUS_PAGE_A,113, 0, 127, VIRUS_MODEL_ALL},
-    {"delay_time",           "Delay Time",       VIRUS_PAGE_A,114, 0, 127, VIRUS_MODEL_ALL},
-    {"delay_feedback",       "Delay Fdbk",       VIRUS_PAGE_A,115, 0, 127, VIRUS_MODEL_ALL},
-    {"delay_rate_rev_decay", "Dly Rate/Decay",   VIRUS_PAGE_A,116, 0, 127, VIRUS_MODEL_ALL},
-    {"delay_depth",          "Delay Depth",      VIRUS_PAGE_A,117, 0, 127, VIRUS_MODEL_ALL},
-    {"delay_lfo_shape",      "Delay LFO",        VIRUS_PAGE_A,118, 0,   5, VIRUS_MODEL_ALL},
-    {"delay_color",          "Delay Color",      VIRUS_PAGE_A,119, 0, 127, VIRUS_MODEL_ALL},
+    /* Page A: Delay / Reverb */
+    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_ALL, OPTS(opts_delay_reverb_mode)},
+    {"effect_send",          "Effect Send",      VIRUS_PAGE_A,113, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"delay_time",           "Delay Time",       VIRUS_PAGE_A,114, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"delay_feedback",       "Delay Fdbk",       VIRUS_PAGE_A,115, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"delay_rate_rev_decay", "Dly Rate/Decay",   VIRUS_PAGE_A,116, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"delay_depth",          "Delay Depth",      VIRUS_PAGE_A,117, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"delay_lfo_shape",      "Delay LFO",        VIRUS_PAGE_A,118, 0,   5, VIRUS_MODEL_ALL, OPTS(opts_delay_lfo_shape)},
+    {"delay_color",          "Delay Color",      VIRUS_PAGE_A,119, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page B: Arpeggiator ── */
-    {"arp_mode",             "Arp Mode",         VIRUS_PAGE_B,  1, 0,   6, VIRUS_MODEL_ALL},
-    {"arp_pattern",          "Arp Pattern",      VIRUS_PAGE_B,  2, 0,  63, VIRUS_MODEL_ALL},
-    {"arp_octave_range",     "Arp Octaves",      VIRUS_PAGE_B,  3, 0,   3, VIRUS_MODEL_ALL},
-    {"arp_hold",             "Arp Hold",         VIRUS_PAGE_B,  4, 0,   1, VIRUS_MODEL_ALL},
-    {"arp_note_length",      "Arp Length",       VIRUS_PAGE_B,  5, 0, 127, VIRUS_MODEL_ALL},
-    {"arp_swing",            "Arp Swing",        VIRUS_PAGE_B,  6, 0, 127, VIRUS_MODEL_ALL},
-    {"arp_clock",            "Arp Clock",        VIRUS_PAGE_B, 17, 0,  17, VIRUS_MODEL_ALL},
+    /* Page B: Arpeggiator */
+    {"arp_mode",             "Arp Mode",         VIRUS_PAGE_B,  1, 0,   6, VIRUS_MODEL_ALL, OPTS(opts_arp_mode)},
+    {"arp_pattern",          "Arp Pattern",      VIRUS_PAGE_B,  2, 0,  63, VIRUS_MODEL_ALL, NO_OPTS},
+    {"arp_octave_range",     "Arp Octaves",      VIRUS_PAGE_B,  3, 0,   3, VIRUS_MODEL_ALL, OPTS(opts_arp_octaves)},
+    {"arp_hold",             "Arp Hold",         VIRUS_PAGE_B,  4, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
+    {"arp_note_length",      "Arp Length",       VIRUS_PAGE_B,  5, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"arp_swing",            "Arp Swing",        VIRUS_PAGE_B,  6, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"arp_clock",            "Arp Clock",        VIRUS_PAGE_B, 17, 0,  17, VIRUS_MODEL_ALL, OPTS(opts_music_div)},
 
-    /* ── Page B: LFO 3 ── */
-    {"lfo3_rate",            "LFO3 Rate",        VIRUS_PAGE_B,  7, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo3_shape",           "LFO3 Shape",       VIRUS_PAGE_B,  8, 0,  67, VIRUS_MODEL_ALL},
-    {"lfo3_mode",            "LFO3 Mode",        VIRUS_PAGE_B,  9, 0,   1, VIRUS_MODEL_ALL},
-    {"lfo3_keyfollow",       "LFO3 KeyFlw",      VIRUS_PAGE_B, 10, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo3_destination",     "LFO3 Dest",        VIRUS_PAGE_B, 11, 0,   5, VIRUS_MODEL_ALL},
-    {"osc_lfo3_amount",      "Osc LFO3 Amt",    VIRUS_PAGE_B, 12, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo3_fadein_time",     "LFO3 FadeIn",      VIRUS_PAGE_B, 13, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo3_clock",           "LFO3 Clock",       VIRUS_PAGE_B, 21, 0,  21, VIRUS_MODEL_ALL},
+    /* Page B: LFO 3 */
+    {"lfo3_rate",            "LFO3 Rate",        VIRUS_PAGE_B,  7, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_shape",           "LFO3 Shape",       VIRUS_PAGE_B,  8, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_mode",            "LFO3 Mode",        VIRUS_PAGE_B,  9, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
+    {"lfo3_keyfollow",       "LFO3 KeyFlw",      VIRUS_PAGE_B, 10, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_destination",     "LFO3 Dest",        VIRUS_PAGE_B, 11, 0,   5, VIRUS_MODEL_ALL, OPTS(opts_lfo3_dest)},
+    {"osc_lfo3_amount",      "Osc LFO3 Amt",    VIRUS_PAGE_B, 12, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_fadein_time",     "LFO3 FadeIn",      VIRUS_PAGE_B, 13, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_clock",           "LFO3 Clock",       VIRUS_PAGE_B, 21, 0,  21, VIRUS_MODEL_ALL, OPTS(opts_music_div)},
 
-    /* ── Page B: Clock / Sync ── */
-    {"clock_tempo",          "Clock Tempo",      VIRUS_PAGE_B, 16, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo1_clock",           "LFO1 Clock",       VIRUS_PAGE_B, 18, 0,  21, VIRUS_MODEL_ALL},
-    {"lfo2_clock",           "LFO2 Clock",       VIRUS_PAGE_B, 19, 0,  21, VIRUS_MODEL_ALL},
-    {"delay_clock",          "Delay Clock",      VIRUS_PAGE_B, 20, 0,  16, VIRUS_MODEL_ALL},
+    /* Page B: Clock / Sync */
+    {"clock_tempo",          "Clock Tempo",      VIRUS_PAGE_B, 16, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_clock",           "LFO1 Clock",       VIRUS_PAGE_B, 18, 0,  21, VIRUS_MODEL_ALL, OPTS(opts_music_div)},
+    {"lfo2_clock",           "LFO2 Clock",       VIRUS_PAGE_B, 19, 0,  21, VIRUS_MODEL_ALL, OPTS(opts_music_div)},
+    {"delay_clock",          "Delay Clock",      VIRUS_PAGE_B, 20, 0,  16, VIRUS_MODEL_ALL, OPTS(opts_music_div)},
 
-    /* ── Page B: Performance / Misc ── */
-    {"filter1_env_polarity", "Flt1 Env Pol",     VIRUS_PAGE_B, 30, 0,   1, VIRUS_MODEL_ALL},
-    {"filter2_env_polarity", "Flt2 Env Pol",     VIRUS_PAGE_B, 31, 0,   1, VIRUS_MODEL_ALL},
-    {"filter2_cutoff_link",  "Flt2 Cut Link",    VIRUS_PAGE_B, 32, 0,   1, VIRUS_MODEL_ALL},
-    {"filter_keytrack_base", "Flt KeyTrk Base",  VIRUS_PAGE_B, 33, 0, 127, VIRUS_MODEL_ALL},
-    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_ALL},
-    {"osc_init_phase",       "Osc Init Phase",   VIRUS_PAGE_B, 35, 0, 127, VIRUS_MODEL_ALL},
-    {"punch_intensity",      "Punch",            VIRUS_PAGE_B, 36, 0, 127, VIRUS_MODEL_ALL},
-    {"bender_range_up",      "Bend Up",          VIRUS_PAGE_B, 26, 0, 127, VIRUS_MODEL_ALL},
-    {"bender_range_down",    "Bend Down",        VIRUS_PAGE_B, 27, 0, 127, VIRUS_MODEL_ALL},
-    {"filter_select",        "Filter Select",    VIRUS_PAGE_B,122, 0,   2, VIRUS_MODEL_ALL},
+    /* Page B: Performance / Misc */
+    {"filter1_env_polarity", "Flt1 Env Pol",     VIRUS_PAGE_B, 30, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_env_polarity)},
+    {"filter2_env_polarity", "Flt2 Env Pol",     VIRUS_PAGE_B, 31, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_env_polarity)},
+    {"filter2_cutoff_link",  "Flt2 Cut Link",    VIRUS_PAGE_B, 32, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
+    {"filter_keytrack_base", "Flt KeyTrk Base",  VIRUS_PAGE_B, 33, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_ALL, OPTS(opts_osc_fm_mode)},
+    {"osc_init_phase",       "Osc Init Phase",   VIRUS_PAGE_B, 35, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"punch_intensity",      "Punch",            VIRUS_PAGE_B, 36, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"bender_range_up",      "Bend Up",          VIRUS_PAGE_B, 26, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"bender_range_down",    "Bend Down",        VIRUS_PAGE_B, 27, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"filter_select",        "Filter Select",    VIRUS_PAGE_B,122, 0,   2, VIRUS_MODEL_ALL, OPTS(opts_filter_select)},
 
-    /* ── Page B: Velocity Sensitivity ── */
-    {"osc1_shape_velocity",  "Osc1 Shp Vel",    VIRUS_PAGE_B, 47, 0, 127, VIRUS_MODEL_ALL},
-    {"osc2_shape_velocity",  "Osc2 Shp Vel",    VIRUS_PAGE_B, 48, 0, 127, VIRUS_MODEL_ALL},
-    {"pulsewidth_velocity",  "PW Velocity",      VIRUS_PAGE_B, 49, 0, 127, VIRUS_MODEL_ALL},
-    {"fm_amount_velocity",   "FM Amt Vel",       VIRUS_PAGE_B, 50, 0, 127, VIRUS_MODEL_ALL},
-    {"flt1_envamt_velocity", "Flt1 Env Vel",     VIRUS_PAGE_B, 54, 0, 127, VIRUS_MODEL_ALL},
-    {"flt2_envamt_velocity", "Flt2 Env Vel",     VIRUS_PAGE_B, 55, 0, 127, VIRUS_MODEL_ALL},
-    {"resonance1_velocity",  "Reso1 Vel",        VIRUS_PAGE_B, 56, 0, 127, VIRUS_MODEL_ALL},
-    {"resonance2_velocity",  "Reso2 Vel",        VIRUS_PAGE_B, 57, 0, 127, VIRUS_MODEL_ALL},
-    {"amp_velocity",         "Amp Velocity",     VIRUS_PAGE_B, 60, 0, 127, VIRUS_MODEL_ALL},
-    {"panorama_velocity",    "Pan Velocity",     VIRUS_PAGE_B, 61, 0, 127, VIRUS_MODEL_ALL},
+    /* Page B: Velocity Sensitivity */
+    {"osc1_shape_velocity",  "Osc1 Shp Vel",    VIRUS_PAGE_B, 47, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"osc2_shape_velocity",  "Osc2 Shp Vel",    VIRUS_PAGE_B, 48, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"pulsewidth_velocity",  "PW Velocity",      VIRUS_PAGE_B, 49, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"fm_amount_velocity",   "FM Amt Vel",       VIRUS_PAGE_B, 50, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt1_envamt_velocity", "Flt1 Env Vel",     VIRUS_PAGE_B, 54, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"flt2_envamt_velocity", "Flt2 Env Vel",     VIRUS_PAGE_B, 55, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"resonance1_velocity",  "Reso1 Vel",        VIRUS_PAGE_B, 56, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"resonance2_velocity",  "Reso2 Vel",        VIRUS_PAGE_B, 57, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"amp_velocity",         "Amp Velocity",     VIRUS_PAGE_B, 60, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"panorama_velocity",    "Pan Velocity",     VIRUS_PAGE_B, 61, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page B: Mod Matrix (slots 1-3, all models) ── */
-    {"assign1_source",       "Asgn1 Src",        VIRUS_PAGE_B, 64, 0,  27, VIRUS_MODEL_ALL},
-    {"assign1_destination",  "Asgn1 Dst",        VIRUS_PAGE_B, 65, 0, 122, VIRUS_MODEL_ALL},
-    {"assign1_amount",       "Asgn1 Amt",        VIRUS_PAGE_B, 66, 0, 127, VIRUS_MODEL_ALL},
-    {"assign2_source",       "Asgn2 Src",        VIRUS_PAGE_B, 67, 0,  27, VIRUS_MODEL_ALL},
-    {"assign2_dest1",        "Asgn2 Dst1",       VIRUS_PAGE_B, 68, 0, 122, VIRUS_MODEL_ALL},
-    {"assign2_amount1",      "Asgn2 Amt1",       VIRUS_PAGE_B, 69, 0, 127, VIRUS_MODEL_ALL},
-    {"assign2_dest2",        "Asgn2 Dst2",       VIRUS_PAGE_B, 70, 0, 122, VIRUS_MODEL_ALL},
-    {"assign2_amount2",      "Asgn2 Amt2",       VIRUS_PAGE_B, 71, 0, 127, VIRUS_MODEL_ALL},
-    {"assign3_source",       "Asgn3 Src",        VIRUS_PAGE_B, 72, 0,  27, VIRUS_MODEL_ALL},
-    {"assign3_dest1",        "Asgn3 Dst1",       VIRUS_PAGE_B, 73, 0, 122, VIRUS_MODEL_ALL},
-    {"assign3_amount1",      "Asgn3 Amt1",       VIRUS_PAGE_B, 74, 0, 127, VIRUS_MODEL_ALL},
-    {"assign3_dest2",        "Asgn3 Dst2",       VIRUS_PAGE_B, 75, 0, 122, VIRUS_MODEL_ALL},
-    {"assign3_amount2",      "Asgn3 Amt2",       VIRUS_PAGE_B, 76, 0, 127, VIRUS_MODEL_ALL},
-    {"assign3_dest3",        "Asgn3 Dst3",       VIRUS_PAGE_B, 77, 0, 122, VIRUS_MODEL_ALL},
-    {"assign3_amount3",      "Asgn3 Amt3",       VIRUS_PAGE_B, 78, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo1_assign_dest",     "LFO1 Asgn Dst",   VIRUS_PAGE_B, 79, 0, 122, VIRUS_MODEL_ALL},
-    {"lfo1_assign_amount",   "LFO1 Asgn Amt",   VIRUS_PAGE_B, 80, 0, 127, VIRUS_MODEL_ALL},
-    {"lfo2_assign_dest",     "LFO2 Asgn Dst",   VIRUS_PAGE_B, 81, 0, 122, VIRUS_MODEL_ALL},
-    {"lfo2_assign_amount",   "LFO2 Asgn Amt",   VIRUS_PAGE_B, 82, 0, 127, VIRUS_MODEL_ALL},
+    /* Page B: Mod Matrix (slots 1-3) */
+    {"assign1_source",       "Asgn1 Src",        VIRUS_PAGE_B, 64, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
+    {"assign1_destination",  "Asgn1 Dst",        VIRUS_PAGE_B, 65, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign1_amount",       "Asgn1 Amt",        VIRUS_PAGE_B, 66, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_source",       "Asgn2 Src",        VIRUS_PAGE_B, 67, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
+    {"assign2_dest1",        "Asgn2 Dst1",       VIRUS_PAGE_B, 68, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_amount1",      "Asgn2 Amt1",       VIRUS_PAGE_B, 69, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_dest2",        "Asgn2 Dst2",       VIRUS_PAGE_B, 70, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_amount2",      "Asgn2 Amt2",       VIRUS_PAGE_B, 71, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_source",       "Asgn3 Src",        VIRUS_PAGE_B, 72, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
+    {"assign3_dest1",        "Asgn3 Dst1",       VIRUS_PAGE_B, 73, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_amount1",      "Asgn3 Amt1",       VIRUS_PAGE_B, 74, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_dest2",        "Asgn3 Dst2",       VIRUS_PAGE_B, 75, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_amount2",      "Asgn3 Amt2",       VIRUS_PAGE_B, 76, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_dest3",        "Asgn3 Dst3",       VIRUS_PAGE_B, 77, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_amount3",      "Asgn3 Amt3",       VIRUS_PAGE_B, 78, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_assign_dest",     "LFO1 Asgn Dst",   VIRUS_PAGE_B, 79, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_assign_amount",   "LFO1 Asgn Amt",   VIRUS_PAGE_B, 80, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_assign_dest",     "LFO2 Asgn Dst",   VIRUS_PAGE_B, 81, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_assign_amount",   "LFO2 Asgn Amt",   VIRUS_PAGE_B, 82, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
-    /* ── Page B: Osc 3 (B/C only) ── */
-    {"osc3_mode",            "Osc3 Mode",        VIRUS_PAGE_B, 41, 0,  67, VIRUS_MODEL_BC},
-    {"osc3_volume",          "Osc3 Volume",      VIRUS_PAGE_B, 42, 0, 127, VIRUS_MODEL_BC},
-    {"osc3_semitone",        "Osc3 Semi",        VIRUS_PAGE_B, 43, 16,112, VIRUS_MODEL_BC},
-    {"osc3_detune",          "Osc3 Detune",      VIRUS_PAGE_B, 44, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: Osc 3 (B/C only) */
+    {"osc3_mode",            "Osc3 Mode",        VIRUS_PAGE_B, 41, 0,  67, VIRUS_MODEL_BC, NO_OPTS},
+    {"osc3_volume",          "Osc3 Volume",      VIRUS_PAGE_B, 42, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"osc3_semitone",        "Osc3 Semi",        VIRUS_PAGE_B, 43, 16,112, VIRUS_MODEL_BC, NO_OPTS},
+    {"osc3_detune",          "Osc3 Detune",      VIRUS_PAGE_B, 44, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
-    /* ── Page B: Phaser (B/C only) ── */
-    {"phaser_mode",          "Phaser Mode",      VIRUS_PAGE_B, 84, 0,   6, VIRUS_MODEL_BC},
-    {"phaser_mix",           "Phaser Mix",       VIRUS_PAGE_B, 85, 0, 127, VIRUS_MODEL_BC},
-    {"phaser_rate",          "Phaser Rate",      VIRUS_PAGE_B, 86, 0, 127, VIRUS_MODEL_BC},
-    {"phaser_depth",         "Phaser Depth",     VIRUS_PAGE_B, 87, 0, 127, VIRUS_MODEL_BC},
-    {"phaser_frequency",     "Phaser Freq",      VIRUS_PAGE_B, 88, 0, 127, VIRUS_MODEL_BC},
-    {"phaser_feedback",      "Phaser Fdbk",      VIRUS_PAGE_B, 89, 0, 127, VIRUS_MODEL_BC},
-    {"phaser_spread",        "Phaser Spread",    VIRUS_PAGE_B, 90, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: Phaser (B/C only) */
+    {"phaser_mode",          "Phaser Mode",      VIRUS_PAGE_B, 84, 0,   6, VIRUS_MODEL_BC, OPTS(opts_phaser_mode)},
+    {"phaser_mix",           "Phaser Mix",       VIRUS_PAGE_B, 85, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"phaser_rate",          "Phaser Rate",      VIRUS_PAGE_B, 86, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"phaser_depth",         "Phaser Depth",     VIRUS_PAGE_B, 87, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"phaser_frequency",     "Phaser Freq",      VIRUS_PAGE_B, 88, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"phaser_feedback",      "Phaser Fdbk",      VIRUS_PAGE_B, 89, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"phaser_spread",        "Phaser Spread",    VIRUS_PAGE_B, 90, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
-    /* ── Page B: EQ (B/C only) ── */
-    {"low_eq_freq",          "Lo EQ Freq",       VIRUS_PAGE_B, 45, 0, 127, VIRUS_MODEL_BC},
-    {"high_eq_freq",         "Hi EQ Freq",       VIRUS_PAGE_B, 46, 0, 127, VIRUS_MODEL_BC},
-    {"mid_eq_gain",          "Mid EQ Gain",      VIRUS_PAGE_B, 92, 0, 127, VIRUS_MODEL_BC},
-    {"mid_eq_freq",          "Mid EQ Freq",      VIRUS_PAGE_B, 93, 0, 127, VIRUS_MODEL_BC},
-    {"mid_eq_q",             "Mid EQ Q",         VIRUS_PAGE_B, 94, 0, 127, VIRUS_MODEL_BC},
-    {"low_eq_gain",          "Lo EQ Gain",       VIRUS_PAGE_B, 95, 0, 127, VIRUS_MODEL_BC},
-    {"high_eq_gain",         "Hi EQ Gain",       VIRUS_PAGE_B, 96, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: EQ (B/C only) */
+    {"low_eq_freq",          "Lo EQ Freq",       VIRUS_PAGE_B, 45, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"high_eq_freq",         "Hi EQ Freq",       VIRUS_PAGE_B, 46, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"mid_eq_gain",          "Mid EQ Gain",      VIRUS_PAGE_B, 92, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"mid_eq_freq",          "Mid EQ Freq",      VIRUS_PAGE_B, 93, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"mid_eq_q",             "Mid EQ Q",         VIRUS_PAGE_B, 94, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"low_eq_gain",          "Lo EQ Gain",       VIRUS_PAGE_B, 95, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"high_eq_gain",         "Hi EQ Gain",       VIRUS_PAGE_B, 96, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
-    /* ── Page B: Distortion (B/C only) ── */
-    {"distortion_curve",     "Dist Curve",       VIRUS_PAGE_B,100, 0,  11, VIRUS_MODEL_BC},
-    {"distortion_intensity", "Dist Intensity",   VIRUS_PAGE_B,101, 0, 127, VIRUS_MODEL_BC},
-    {"bass_intensity",       "Analog Boost",     VIRUS_PAGE_B, 97, 0, 127, VIRUS_MODEL_BC},
-    {"bass_tune",            "Boost Tune",       VIRUS_PAGE_B, 98, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: Distortion (B/C only) */
+    {"distortion_curve",     "Dist Curve",       VIRUS_PAGE_B,100, 0,  11, VIRUS_MODEL_BC, OPTS(opts_dist_curve)},
+    {"distortion_intensity", "Dist Intensity",   VIRUS_PAGE_B,101, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"bass_intensity",       "Analog Boost",     VIRUS_PAGE_B, 97, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"bass_tune",            "Boost Tune",       VIRUS_PAGE_B, 98, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
-    /* ── Page B: Mod Matrix Slots 4-6 (B/C only) ── */
-    {"assign4_source",       "Asgn4 Src",        VIRUS_PAGE_B,103, 0,  27, VIRUS_MODEL_BC},
-    {"assign4_destination",  "Asgn4 Dst",        VIRUS_PAGE_B,104, 0, 122, VIRUS_MODEL_BC},
-    {"assign4_amount",       "Asgn4 Amt",        VIRUS_PAGE_B,105, 0, 127, VIRUS_MODEL_BC},
-    {"assign5_source",       "Asgn5 Src",        VIRUS_PAGE_B,106, 0,  27, VIRUS_MODEL_BC},
-    {"assign5_destination",  "Asgn5 Dst",        VIRUS_PAGE_B,107, 0, 122, VIRUS_MODEL_BC},
-    {"assign5_amount",       "Asgn5 Amt",        VIRUS_PAGE_B,108, 0, 127, VIRUS_MODEL_BC},
-    {"assign6_source",       "Asgn6 Src",        VIRUS_PAGE_B,109, 0,  27, VIRUS_MODEL_BC},
-    {"assign6_destination",  "Asgn6 Dst",        VIRUS_PAGE_B,110, 0, 122, VIRUS_MODEL_BC},
-    {"assign6_amount",       "Asgn6 Amt",        VIRUS_PAGE_B,111, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: Mod Matrix Slots 4-6 (B/C only) */
+    {"assign4_source",       "Asgn4 Src",        VIRUS_PAGE_B,103, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
+    {"assign4_destination",  "Asgn4 Dst",        VIRUS_PAGE_B,104, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign4_amount",       "Asgn4 Amt",        VIRUS_PAGE_B,105, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign5_source",       "Asgn5 Src",        VIRUS_PAGE_B,106, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
+    {"assign5_destination",  "Asgn5 Dst",        VIRUS_PAGE_B,107, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign5_amount",       "Asgn5 Amt",        VIRUS_PAGE_B,108, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign6_source",       "Asgn6 Src",        VIRUS_PAGE_B,109, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
+    {"assign6_destination",  "Asgn6 Dst",        VIRUS_PAGE_B,110, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign6_amount",       "Asgn6 Amt",        VIRUS_PAGE_B,111, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
-    /* ── Page B: Vocoder / Input (C only) ── */
-    {"input_follower_mode",  "Input Follower",   VIRUS_PAGE_B, 38, 0,   9, VIRUS_MODEL_C},
-    {"vocoder_mode",         "Vocoder Mode",     VIRUS_PAGE_B, 39, 0,  12, VIRUS_MODEL_C},
-    {"input_ringmod",        "Input RingMod",    VIRUS_PAGE_B, 99, 0, 127, VIRUS_MODEL_BC},
+    /* Page B: Vocoder / Input (C only) */
+    {"input_follower_mode",  "Input Follower",   VIRUS_PAGE_B, 38, 0,   9, VIRUS_MODEL_C, OPTS(opts_input_follower)},
+    {"vocoder_mode",         "Vocoder Mode",     VIRUS_PAGE_B, 39, 0,  12, VIRUS_MODEL_C, OPTS(opts_vocoder_mode)},
+    {"input_ringmod",        "Input RingMod",    VIRUS_PAGE_B, 99, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 };
 static const int NUM_PARAMS = sizeof(g_params) / sizeof(g_params[0]);
 static constexpr int VIRUS_MAX_BANKS = 32;
@@ -2056,12 +2169,26 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         off += snprintf(buf+off, buf_len-off, "]},"
             "{\"key\":\"dsp_clock\",\"name\":\"DSP Clock %%\",\"type\":\"int\",\"min\":10,\"max\":100,\"step\":5},"
             "{\"key\":\"gain\",\"name\":\"Gain %%\",\"type\":\"int\",\"min\":1,\"max\":100}");
-        for (int i = 0; i < NUM_PARAMS && off < buf_len - 100; i++) {
+        for (int i = 0; i < NUM_PARAMS && off < buf_len - 200; i++) {
             if (!param_available_for_model(&g_params[i], (const char*)shm->rom_model_name))
                 continue;
-            off += snprintf(buf+off, buf_len-off,
-                ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d}",
-                g_params[i].key, g_params[i].name, g_params[i].min_val, g_params[i].max_val);
+            if (g_params[i].options && g_params[i].num_options > 0) {
+                int n = g_params[i].num_options;
+                int range = g_params[i].max_val - g_params[i].min_val + 1;
+                if (range < n) n = range;
+                off += snprintf(buf+off, buf_len-off,
+                    ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"enum\",\"options\":[",
+                    g_params[i].key, g_params[i].name);
+                for (int j = 0; j < n && off < buf_len - 50; j++) {
+                    if (j > 0) off += snprintf(buf+off, buf_len-off, ",");
+                    off += snprintf(buf+off, buf_len-off, "\"%s\"", g_params[i].options[j]);
+                }
+                off += snprintf(buf+off, buf_len-off, "]}");
+            } else {
+                off += snprintf(buf+off, buf_len-off,
+                    ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d}",
+                    g_params[i].key, g_params[i].name, g_params[i].min_val, g_params[i].max_val);
+            }
         }
         off += snprintf(buf+off, buf_len-off, "]");
         return off;
