@@ -52,7 +52,6 @@
 #include "virusLib/romfile.h"
 #include "virusLib/romloader.h"
 #include "virusLib/deviceModel.h"
-#include "virusLib/midiFileToRomData.h"
 #include "synthLib/midiToSysex.h"
 #include "dsp56kEmu/audio.h"
 #include "dsp56kEmu/semaphore.h"
@@ -260,6 +259,65 @@ static const char *opts_osc_wave[] = {
     "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60",
     "Wave 61", "Wave 62", "Wave 63", "Wave 64"
 };
+static const char *opts_lfo_shape[] = {
+    "Sine", "Triangle", "Saw", "Square", "S&H", "S&G",
+    "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8",
+    "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14",
+    "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20",
+    "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26",
+    "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32",
+    "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38",
+    "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44",
+    "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50",
+    "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56",
+    "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62",
+    "Wave 63", "Wave 64"
+};
+static const char *opts_osc3_mode[] = {
+    "Off", "Slave", "Saw", "Pulse", "Sine", "Triangle",
+    "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8",
+    "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14",
+    "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20",
+    "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26",
+    "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32",
+    "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38",
+    "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44",
+    "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50",
+    "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56",
+    "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62",
+    "Wave 63", "Wave 64"
+};
+static const char *opts_mod_dest[] = {
+    "Off", "PatchVol", "ChannelVol", "Panorama", "Transpose", "Portamento",
+    "Osc1Shape", "Osc1PlsWdh", "Osc1WavSel", "Osc1Pitch", "Osc1Keyflw",
+    "Osc2Shape", "Osc2PlsWdh", "Osc2WavSel", "Osc2Pitch", "Osc2Detune",
+    "Osc2FmAmt", "Osc2EnvAmt", "FmEnvAmt", "Osc2Keyflw",
+    "OscBalance", "SubOscVol", "OscMainVol", "NoiseVol",
+    "Cutoff", "Cutoff2", "Filt1Reso", "Filt2Reso",
+    "Flt1EnvAmt", "Flt2EnvAmt", "Flt1Keyflw", "Flt2Keyflw", "FltBalance",
+    "FltAttack", "FltDecay", "FltSustain", "FltSusTime", "FltRelease",
+    "AmpAttack", "AmpDecay", "AmpSustain", "AmpSusTime", "AmpRelease",
+    "Lfo1Rate", "Lfo1Cont", "Lfo1>Osc1", "Lfo1>Osc2", "Lfo1>PlsWd",
+    "Lfo1>Reso", "Lfo1>FltGn",
+    "Lfo2Rate", "Lfo2Cont", "Lfo2>Shape", "Lfo2>Fm", "Lfo2>Cut1",
+    "Lfo2>Cut2", "Lfo2>Pan",
+    "Lfo3Rate", "Lfo3OscAmt",
+    "UniDetune", "UniSpread", "UniLfoPhs",
+    "ChorusMix", "ChorusRate", "ChorusDpth", "ChorusDly", "ChorusFeed",
+    "EffectSend", "DelayTime", "DelayFeed", "DelayRate", "DelayDepth",
+    "Osc1ShpVel", "Osc2ShpVel", "PlsWhdVel", "FmAmtVel",
+    "Flt1EnvVel", "Flt2EnvVel", "Reso1Vel", "Reso2Vel", "AmpVel", "PanVel",
+    "Ass1Amt1", "Ass2Amt1", "Ass2Amt2", "Ass3Amt1", "Ass3Amt2", "Ass3Amt3",
+    "OscInitPhs", "PunchInt", "RingMod", "NoiseColor", "DelayColor",
+    "ABoostInt", "ABoostTune", "DistInt",
+    "RingmodMix", "Osc3Volume", "Osc3Semi", "Osc3Detune",
+    "Lfo1AssAmt", "Lfo2AssAmt",
+    "PhaserMix", "PhaserRate", "PhaserDept", "PhaserFreq", "PhaserFdbk", "PhaserSprd",
+    "RevbDecay", "RevDamping", "RevbColor", "RevPredely", "RevFeedbck",
+    "SecBalance", "ArpNoteLen", "ArpSwing", "ArpPattern",
+    "EqMidGain", "EqMidFreq", "EqMidQFact",
+    "Assign4Amt", "Assign5Amt", "Assign6Amt"
+};
 
 #define OPTS(arr) arr, (int)(sizeof(arr)/sizeof(arr[0]))
 #define NO_OPTS NULL, 0
@@ -332,7 +390,7 @@ static const virus_param_t g_params[] = {
 
     /* Page A: LFO 1 */
     {"lfo1_rate",            "LFO1 Rate",        VIRUS_PAGE_A, 67, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"lfo1_shape",           "LFO1 Shape",       VIRUS_PAGE_A, 68, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_shape",           "LFO1 Shape",       VIRUS_PAGE_A, 68, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
     {"lfo1_env_mode",        "LFO1 Env Mode",    VIRUS_PAGE_A, 69, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
     {"lfo1_mode",            "LFO1 Mode",        VIRUS_PAGE_A, 70, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
     {"lfo1_symmetry",        "LFO1 Symmetry",    VIRUS_PAGE_A, 71, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -346,7 +404,7 @@ static const virus_param_t g_params[] = {
 
     /* Page A: LFO 2 */
     {"lfo2_rate",            "LFO2 Rate",        VIRUS_PAGE_A, 79, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"lfo2_shape",           "LFO2 Shape",       VIRUS_PAGE_A, 80, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_shape",           "LFO2 Shape",       VIRUS_PAGE_A, 80, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
     {"lfo2_env_mode",        "LFO2 Env Mode",    VIRUS_PAGE_A, 81, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
     {"lfo2_mode",            "LFO2 Mode",        VIRUS_PAGE_A, 82, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
     {"lfo2_symmetry",        "LFO2 Symmetry",    VIRUS_PAGE_A, 83, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -376,7 +434,7 @@ static const virus_param_t g_params[] = {
     {"chorus_depth",         "Chorus Depth",     VIRUS_PAGE_A,107, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"chorus_delay",         "Chorus Delay",     VIRUS_PAGE_A,108, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"chorus_feedback",      "Chorus Fdbk",      VIRUS_PAGE_A,109, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
 
     /* Page A: Delay / Reverb */
     {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_ALL, OPTS(opts_delay_reverb_mode)},
@@ -399,7 +457,7 @@ static const virus_param_t g_params[] = {
 
     /* Page B: LFO 3 */
     {"lfo3_rate",            "LFO3 Rate",        VIRUS_PAGE_B,  7, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"lfo3_shape",           "LFO3 Shape",       VIRUS_PAGE_B,  8, 0,  67, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo3_shape",           "LFO3 Shape",       VIRUS_PAGE_B,  8, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
     {"lfo3_mode",            "LFO3 Mode",        VIRUS_PAGE_B,  9, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_lfo_mode)},
     {"lfo3_keyfollow",       "LFO3 KeyFlw",      VIRUS_PAGE_B, 10, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"lfo3_destination",     "LFO3 Dest",        VIRUS_PAGE_B, 11, 0,   5, VIRUS_MODEL_ALL, OPTS(opts_lfo3_dest)},
@@ -439,27 +497,27 @@ static const virus_param_t g_params[] = {
 
     /* Page B: Mod Matrix (slots 1-3) */
     {"assign1_source",       "Asgn1 Src",        VIRUS_PAGE_B, 64, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
-    {"assign1_destination",  "Asgn1 Dst",        VIRUS_PAGE_B, 65, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign1_destination",  "Asgn1 Dst",        VIRUS_PAGE_B, 65, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign1_amount",       "Asgn1 Amt",        VIRUS_PAGE_B, 66, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"assign2_source",       "Asgn2 Src",        VIRUS_PAGE_B, 67, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
-    {"assign2_dest1",        "Asgn2 Dst1",       VIRUS_PAGE_B, 68, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_dest1",        "Asgn2 Dst1",       VIRUS_PAGE_B, 68, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign2_amount1",      "Asgn2 Amt1",       VIRUS_PAGE_B, 69, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"assign2_dest2",        "Asgn2 Dst2",       VIRUS_PAGE_B, 70, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign2_dest2",        "Asgn2 Dst2",       VIRUS_PAGE_B, 70, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign2_amount2",      "Asgn2 Amt2",       VIRUS_PAGE_B, 71, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"assign3_source",       "Asgn3 Src",        VIRUS_PAGE_B, 72, 0,  27, VIRUS_MODEL_ALL, OPTS(opts_mod_source)},
-    {"assign3_dest1",        "Asgn3 Dst1",       VIRUS_PAGE_B, 73, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_dest1",        "Asgn3 Dst1",       VIRUS_PAGE_B, 73, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign3_amount1",      "Asgn3 Amt1",       VIRUS_PAGE_B, 74, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"assign3_dest2",        "Asgn3 Dst2",       VIRUS_PAGE_B, 75, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_dest2",        "Asgn3 Dst2",       VIRUS_PAGE_B, 75, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign3_amount2",      "Asgn3 Amt2",       VIRUS_PAGE_B, 76, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"assign3_dest3",        "Asgn3 Dst3",       VIRUS_PAGE_B, 77, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"assign3_dest3",        "Asgn3 Dst3",       VIRUS_PAGE_B, 77, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"assign3_amount3",      "Asgn3 Amt3",       VIRUS_PAGE_B, 78, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"lfo1_assign_dest",     "LFO1 Asgn Dst",   VIRUS_PAGE_B, 79, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo1_assign_dest",     "LFO1 Asgn Dst",   VIRUS_PAGE_B, 79, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"lfo1_assign_amount",   "LFO1 Asgn Amt",   VIRUS_PAGE_B, 80, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"lfo2_assign_dest",     "LFO2 Asgn Dst",   VIRUS_PAGE_B, 81, 0, 122, VIRUS_MODEL_ALL, NO_OPTS},
+    {"lfo2_assign_dest",     "LFO2 Asgn Dst",   VIRUS_PAGE_B, 81, 0, 122, VIRUS_MODEL_ALL, OPTS(opts_mod_dest)},
     {"lfo2_assign_amount",   "LFO2 Asgn Amt",   VIRUS_PAGE_B, 82, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
 
     /* Page B: Osc 3 (B/C only) */
-    {"osc3_mode",            "Osc3 Mode",        VIRUS_PAGE_B, 41, 0,  67, VIRUS_MODEL_BC, NO_OPTS},
+    {"osc3_mode",            "Osc3 Mode",        VIRUS_PAGE_B, 41, 0,  67, VIRUS_MODEL_BC, OPTS(opts_osc3_mode)},
     {"osc3_volume",          "Osc3 Volume",      VIRUS_PAGE_B, 42, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
     {"osc3_semitone",        "Osc3 Semi",        VIRUS_PAGE_B, 43, 16,112, VIRUS_MODEL_BC, NO_OPTS},
     {"osc3_detune",          "Osc3 Detune",      VIRUS_PAGE_B, 44, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
@@ -490,13 +548,13 @@ static const virus_param_t g_params[] = {
 
     /* Page B: Mod Matrix Slots 4-6 (B/C only) */
     {"assign4_source",       "Asgn4 Src",        VIRUS_PAGE_B,103, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
-    {"assign4_destination",  "Asgn4 Dst",        VIRUS_PAGE_B,104, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign4_destination",  "Asgn4 Dst",        VIRUS_PAGE_B,104, 0, 122, VIRUS_MODEL_BC, OPTS(opts_mod_dest)},
     {"assign4_amount",       "Asgn4 Amt",        VIRUS_PAGE_B,105, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
     {"assign5_source",       "Asgn5 Src",        VIRUS_PAGE_B,106, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
-    {"assign5_destination",  "Asgn5 Dst",        VIRUS_PAGE_B,107, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign5_destination",  "Asgn5 Dst",        VIRUS_PAGE_B,107, 0, 122, VIRUS_MODEL_BC, OPTS(opts_mod_dest)},
     {"assign5_amount",       "Asgn5 Amt",        VIRUS_PAGE_B,108, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
     {"assign6_source",       "Asgn6 Src",        VIRUS_PAGE_B,109, 0,  27, VIRUS_MODEL_BC, OPTS(opts_mod_source)},
-    {"assign6_destination",  "Asgn6 Dst",        VIRUS_PAGE_B,110, 0, 122, VIRUS_MODEL_BC, NO_OPTS},
+    {"assign6_destination",  "Asgn6 Dst",        VIRUS_PAGE_B,110, 0, 122, VIRUS_MODEL_BC, OPTS(opts_mod_dest)},
     {"assign6_amount",       "Asgn6 Amt",        VIRUS_PAGE_B,111, 0, 127, VIRUS_MODEL_BC, NO_OPTS},
 
     /* Page B: Vocoder / Input (C only) */
@@ -858,6 +916,10 @@ static void child_process_midi_fifo(virus_shm_t *shm,
         }
         shm->midi_read = rd;
 
+        /* Direct parameter change via SysEx → Microcontroller::send() → HDI08.
+         * The DSP firmware only responds to direct HDI08 writes for many params
+         * (wave select, etc.), not to MIDI CC. This matches the desktop Osirus
+         * plugin's Controller::sendParameterChange() path. */
         /* Track CC values in shared memory */
         uint8_t status = msg[0] & 0xF0;
 
