@@ -1807,6 +1807,18 @@ static int json_get_int(const char *json, const char *key, int *out) {
     return 0;
 }
 
+/* Copy src into dst with minimal JSON-string escaping (" and \) so a value
+ * (e.g. a user-bank name) embedded in the state blob can't break the manager's
+ * JSON parse. Always NUL-terminates; truncates safely if it won't fit. */
+static void json_escape_into(char *dst, int cap, const char *src) {
+    int n = 0;
+    for (const char *p = src; *p && n < cap - 2; p++) {
+        if (*p == '"' || *p == '\\') dst[n++] = '\\';
+        dst[n++] = *p;
+    }
+    dst[n] = 0;
+}
+
 static void v2_set_param(void *instance, const char *key, const char *val) {
     virus_instance_t *inst = (virus_instance_t*)instance;
     if (!inst || !inst->shm) return;
@@ -2399,6 +2411,14 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d",
             shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40,
             shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index);
+        /* Preset-browser metadata for the remote UI. getParam in the manager is
+         * cache-only, so these have to ride the bulk state seed (which the host
+         * also re-reads after every preset/bank change) to reach the browser. */
+        char bank_name_esc[64];
+        json_escape_into(bank_name_esc, sizeof(bank_name_esc), (const char*)shm->bank_name);
+        off += snprintf(buf+off, buf_len-off,
+            ",\"bank_index\":%d,\"bank_count\":%d,\"preset_count\":%d,\"patch_in_bank\":%d,\"bank_name\":\"%s\"",
+            shm->current_bank, shm->bank_count, shm->preset_count, shm->current_preset + 1, bank_name_esc);
         for (int i = 0; i < NUM_PARAMS; i++) {
             if (!is_param_seen(shm, &g_params[i])) continue;
             off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
