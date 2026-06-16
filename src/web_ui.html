@@ -17,42 +17,49 @@
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
-  body{background:var(--metal3);color:var(--ink);
+  body{background:#000;color:var(--ink);
     font:12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
   body::before,body::after{content:"";position:fixed;top:0;bottom:0;width:13px;z-index:40;pointer-events:none}
   body::before{left:0;background:linear-gradient(90deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
   body::after{right:0;background:linear-gradient(270deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
   #app{min-height:100%;margin:0 13px;
-    background:repeating-linear-gradient(180deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px),
-      linear-gradient(180deg,var(--metal1),var(--metal2));
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,.4)}
+    background:linear-gradient(180deg,#0b0b0c,#070708);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
   .hidden{display:none!important}
 
   /* header */
-  header{position:sticky;top:0;z-index:30;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;
-    padding:7px 12px;background:linear-gradient(180deg,#101113,#0a0b0c);border-bottom:1px solid #000}
+  .topbar{position:sticky;top:0;z-index:30}
+  header{position:relative;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
+    padding:4px 10px;background:linear-gradient(180deg,#101113,#0a0b0c);border-bottom:1px solid #000}
   .brand{font-weight:800;letter-spacing:2.5px;color:var(--red);font-size:14px;text-shadow:0 0 10px rgba(216,54,43,.4)}
   .brand small{color:#6a6d73;font-weight:600;letter-spacing:.5px;font-size:9px;margin-left:5px}
   .badge{font-size:10px;font-weight:800;color:#1a0c0a;background:var(--red);border-radius:3px;padding:2px 7px;box-shadow:0 0 8px rgba(216,54,43,.5)}
-  .lcd{display:flex;align-items:center;gap:6px;background:linear-gradient(180deg,#2a0907,#1a0605);
-    border:1px solid #000;border-radius:4px;padding:4px 8px;box-shadow:inset 0 0 10px rgba(216,54,43,.25),0 1px 0 rgba(255,255,255,.05)}
-  .lcd .name{min-width:140px;max-width:220px;text-align:center;color:#ff7a6e;font-weight:700;
-    font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 6px rgba(255,90,71,.6)}
-  .lcd .idx{font-variant-numeric:tabular-nums;color:#c5483f;min-width:52px;text-align:center;font-size:11px}
-  .lcd .bank{color:#9c473f;font-size:10px;letter-spacing:.5px;min-width:58px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* bright yellow-green character-LCD (Crystalfontz/Virus style) */
+  .lcd{display:flex;align-items:center;gap:6px;border:1px solid #4a5810;border-radius:4px;padding:4px 8px;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 2px),repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0 1px,transparent 1px 2px),linear-gradient(180deg,#c4dc36,#a9c521);
+    box-shadow:inset 0 0 10px rgba(60,80,8,.4),inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 rgba(255,255,255,.05)}
+  .lcd .name{min-width:140px;max-width:220px;text-align:center;color:#172207;font-weight:700;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(255,255,255,.2)}
+  .lcd .idx{font-variant-numeric:tabular-nums;color:#243405;min-width:52px;text-align:center;font-size:11px;font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  .lcd .bank{color:#243405;font-size:10px;letter-spacing:.5px;min-width:58px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-weight:700}
+  .lcd button.nav{background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.08));border:1px solid rgba(40,50,8,.45);color:#1d2a06;box-shadow:none}
+  .lcd button.nav:hover{border-color:#3a4808;color:#000}
   .grp{display:flex;align-items:center;gap:5px}
   .hl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#6a6d73}
+  .zoomgrp .hl{font-size:14px;letter-spacing:0;color:#8a8d93}
+  .zoomgrp{gap:3px}
+  #zoom{width:90px;height:14px}
   button.nav{background:linear-gradient(180deg,#2b2d31,#1a1c1f);border:1px solid #000;color:var(--ink);
     border-radius:4px;padding:4px 9px;cursor:pointer;font-size:13px;box-shadow:0 1px 0 rgba(255,255,255,.06)}
   button.nav:hover{border-color:var(--red);color:#fff}
   button.nav:active{background:#141517}
-  #status{margin-left:auto;font-size:10px;color:#6a6d73;display:flex;align-items:center;gap:6px}
+  #status{font-size:10px;color:#6a6d73;display:flex;align-items:center;gap:5px}
   #dot{width:8px;height:8px;border-radius:50%;background:#3a1411}
   #dot.ok{background:var(--red2);box-shadow:0 0 7px rgba(255,83,71,.8)} #dot.err{background:#ffd23a}
 
   /* jump-link bar */
-  .tabs{position:sticky;top:42px;z-index:25;display:flex;flex-wrap:wrap;gap:3px;padding:5px 12px;
+  .tabs{position:relative;z-index:25;display:flex;flex-wrap:wrap;gap:3px;padding:5px 12px;
     background:linear-gradient(180deg,#1a1c1f,#141518);border-bottom:1px solid #000}
   .tab{padding:4px 14px;border-radius:3px;cursor:pointer;font-weight:700;font-size:11px;letter-spacing:1px;
     color:var(--dim);border:1px solid transparent;text-transform:uppercase}
@@ -63,34 +70,42 @@
   main{padding:0;overflow-x:auto}
   .pagewrap{position:relative;overflow:hidden}
   .canvas{position:absolute;top:0;left:0;transform-origin:top left}
-  .block{position:absolute;background:linear-gradient(180deg,var(--recess),var(--recess2));
-    border:1px solid var(--edge);border-radius:var(--r);padding:0 8px 0;
-    box-shadow:inset 0 1px 0 var(--hair),0 2px 6px rgba(0,0,0,.5)}
-  /* --accent is set per block (rgb triplet) for subtle section color-coding. */
+  /* Every panel is the Virus oscillator red; --accent (rgb triplet) is the
+     per-section header shade — black/gray. Controls render white/gray on top. */
+  /* subtle vertical gradient (lightest at centre) + very fine horizontal stripes */
+  .block{position:absolute;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 50%,rgba(0,0,0,.16)),rgb(196,52,40);
+    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 8px 0;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 7px rgba(0,0,0,.6)}
+  /* powder-coat grain: grayscale fractal noise blended over the panel */
+  .block::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;z-index:0;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:140px 140px;mix-blend-mode:overlay;opacity:.55}
+  .block > *{position:relative;z-index:1}
   .bhead{display:flex;align-items:center;gap:6px;margin:0 -8px 4px;padding:5px 8px;
-    background:linear-gradient(180deg,rgba(var(--accent,136,140,156),.22),rgba(var(--accent,136,140,156),.05)),linear-gradient(180deg,#222530,#191c24);
-    border-bottom:1px solid rgba(var(--accent,0,0,0),.5);border-radius:var(--r) var(--r) 0 0}
-  .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bhead .led{width:5px;height:5px;border-radius:50%;background:rgb(var(--accent,216,54,43));box-shadow:0 0 5px rgba(var(--accent,216,54,43),.7);flex:none}
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.28)),rgb(var(--accent,34,34,36));
+    border-bottom:1px solid rgba(0,0,0,.5);box-shadow:inset 0 -1px 0 rgba(255,255,255,.05);border-radius:var(--r) var(--r) 0 0}
+  .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .bhead .led{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 4px rgba(255,255,255,.5);flex:none}
 
   .controls{position:relative}
   .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
   .ctl.pkdim{opacity:.3}   /* osc wave-select / pulse-width sidelined by current Shape zone */
-  .ctl > label{font-size:8.5px;color:var(--dim);text-align:center;line-height:1.1;height:18px;
-    overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%}
-  .ctl .val{font-size:9px;color:var(--ink);min-height:10px;font-variant-numeric:tabular-nums}
+  .ctl > label{font-size:7.7px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.1;height:18px;
+    overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .ctl .val{font-size:9px;color:rgba(255,255,255,.85);min-height:10px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
   .knobsvg{width:40px;height:40px;display:block;margin:-3px 0 -6px;cursor:ns-resize;touch-action:none}
   .kbody{fill:url(#kgrad);stroke:#000;stroke-width:1}
-  .karc{fill:none;stroke:var(--track);stroke-width:3;stroke-linecap:round}
-  .kfill{fill:none;stroke:var(--red);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 2px rgba(216,54,43,.6))}
-  .kptr{stroke:var(--red2);stroke-width:2.2;stroke-linecap:round}
-  .ctl.sel select{width:104px;height:24px;background:linear-gradient(180deg,#26282c,#1a1c1f);border:1px solid #000;border-radius:4px;
-    color:var(--ink);font-size:10px;padding:0 5px;cursor:pointer}
-  .ctl.sel select:hover{border-color:var(--red)}
-  .sw{width:42px;height:22px;border-radius:11px;background:var(--track);border:1px solid #000;position:relative;cursor:pointer;transition:background .12s}
+  .karc{fill:none;stroke:rgba(0,0,0,.5);stroke-width:3;stroke-linecap:round}
+  .kfill{fill:none;stroke:rgba(245,242,236,.42);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
+  .kptr{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
+  .ctl.sel select{width:104px;height:24px;background:linear-gradient(180deg,#1d1e21,#101113);border:1px solid #000;border-radius:4px;
+    color:#ff5142;font-size:7.8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:0 4px;cursor:pointer;text-align:center;text-align-last:center}
+  .ctl.sel select option{color:#ff5142;background:#141519;text-transform:uppercase}
+  .ctl.sel select:hover{border-color:rgba(255,255,255,.4)}
+  .sw{width:42px;height:22px;border-radius:11px;background:rgba(0,0,0,.45);border:1px solid #000;position:relative;cursor:pointer;transition:background .12s}
   .sw .dot{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#54585f;transition:.12s}
-  .sw.on{background:rgba(216,54,43,.32)}
-  .sw.on .dot{left:22px;background:var(--red2);box-shadow:0 0 7px rgba(255,83,71,.8)}
+  .sw.on{background:rgba(255,255,255,.28)}
+  .sw.on .dot{left:22px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
   .divider{position:absolute;z-index:6;border-radius:1px}
   .divider.dv{background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
   .divider.dh{background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
@@ -103,6 +118,7 @@
   <radialGradient id="kgrad" cx="38%" cy="30%" r="75%"><stop offset="0%" stop-color="#3a3d43"/><stop offset="55%" stop-color="#2c2e33"/><stop offset="100%" stop-color="#0c0d10"/></radialGradient>
 </defs></svg>
 <div id="app">
+  <div class="topbar">
   <header>
     <div class="brand">OSIRUS<small>SCHWUNG EDITOR</small></div>
     <span id="modelBadge" class="badge">A</span>
@@ -117,12 +133,13 @@
     </div>
     <div class="grp"><span class="hl">Oct</span>
       <button class="nav" id="oDown">−</button><span class="idx" id="oVal" style="color:var(--dim);min-width:26px;text-align:center">0</span><button class="nav" id="oUp">+</button></div>
-    <div class="grp"><span class="hl">Zoom</span>
-      <input id="zoom" type="range" min="0.5" max="2" step="0.05" value="1" style="width:90px"></div>
-    <button class="nav" id="syncBtn" title="Re-sync from device">⟳ Sync</button>
+    <div class="grp zoomgrp"><span class="hl" title="Zoom">⌕</span>
+      <input id="zoom" type="range" min="0.5" max="2" step="0.05" value="1" title="Zoom"></div>
+    <button class="nav" id="syncBtn" title="Re-sync from device">⟳</button>
     <div id="status"><span id="dot"></span><span id="statusText">connecting…</span></div>
   </header>
   <nav class="tabs" id="tabs"></nav>
+  </div>
   <main id="main"></main>
   <footer>OSIRUS · Access Virus emulator (Gearmulator) · monotimbral single-patch editor</footer>
 </div>
@@ -156,7 +173,17 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
 
   var DESIGN_W=(LAYOUT.canvasWidth)||1130;
   var CW=(LAYOUT.cell&&LAYOUT.cell.w)||56, RH=(LAYOUT.cell&&LAYOUT.cell.h)||68;
-  var BANDS=[{id:"osc",name:"Oscillators · Mixer · Filter · Envelopes"},{id:"lfo",name:"LFOs · Modulation Matrix"},{id:"fx",name:"Effects"},{id:"arp",name:"Arpeggiator · Patch"}];
+  // Jump-menu sections (finer than the arranger's coarse bands). Order = scroll order.
+  var BANDS=[{id:"osc",label:"OSC"},{id:"filt",label:"FILT"},{id:"env",label:"ENV"},
+             {id:"lfo",label:"LFO"},{id:"asng",label:"ASNG"},{id:"arpfx",label:"ARP/FX"}];
+  var SECTION={
+    "Osc 1":"osc","Osc 2":"osc","Common":"osc","Unison":"osc","Mixer":"osc",
+    "Filter 1":"filt","Filter 2":"filt","Filter Routing":"filt",
+    "Amp Envelope":"env","Filter Envelope":"env","Velocity Mod":"env",
+    "Assign":"asng",
+    "Arpeggiator":"arpfx","Chorus":"arpfx","Delay / Reverb":"arpfx","Patch / Output":"arpfx"
+  };
+  function sectionFor(t){ return /^LFO/.test(t) ? "lfo" : (SECTION[t]||"osc"); }
 
   var state={ values:{}, level:0, built:false, canvas:null, wrap:null, designH:0, bandFirst:{} };
   var controls={};   // key -> [setter,...]
@@ -189,7 +216,7 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   function shortName(name,strip){ if(!strip||!strip.length) return name; var s=name;
     strip.forEach(function(t){ s=s.replace(new RegExp("\\b"+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","ig")," "); });
     s=s.replace(/\s+/g," ").trim(); return s||name; }
-  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM" };
+  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM", portamento_time:"Porta" };
 
   // ---- live widgets (native ints) ----
   var NS="http://www.w3.org/2000/svg";
@@ -258,17 +285,20 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   // ---- subtle per-section color coding (cued from the Virus panel) ----
   // Neighboring groups never share a hue. LFO blocks (incl. "LFO n → Mod")
   // matched by prefix so the arrow glyph isn't a matching hazard.
+  // Per-section HEADER shade — black/gray only (panels themselves are all red).
+  // Four levels assigned so no two adjacent sections share a shade.
+  var K1="20,20,22", K2="46,46,50", K3="74,74,80", K4="104,104,110";
   var BLOCK_ACCENT = {
-    "Osc 1":"210,150,70","Osc 2":"210,150,70","Mixer":"210,150,70","Unison":"210,150,70",
-    "Common":"210,150,70","Patch / Output":"210,150,70",            // oscillators / mixer / output
-    "Filter 1":"75,150,225","Filter 2":"75,150,225","Filter Routing":"75,150,225",
-    "Amp Envelope":"95,185,115","Filter Envelope":"95,185,115",
-    "Velocity Mod":"170,120,225",
-    "Assign":"220,185,75",
-    "Arpeggiator":"205,95,175",
-    "Chorus":"120,125,230","Delay / Reverb":"120,125,230"
+    "Osc 1":K1,"Osc 2":K1,"Mixer":K1,"Unison":K1,
+    "Common":K1,"Patch / Output":K1,                         // oscillators / mixer / output
+    "Filter 1":K2,"Filter 2":K2,"Filter Routing":K2,
+    "Amp Envelope":K3,"Filter Envelope":K3,
+    "Velocity Mod":K4,
+    "Assign":K2,
+    "Arpeggiator":K3,
+    "Chorus":K4,"Delay / Reverb":K4
   };
-  function accentFor(title){ return /^LFO/.test(title) ? "70,195,205" : (BLOCK_ACCENT[title]||null); }
+  function accentFor(title){ return /^LFO/.test(title) ? K1 : (BLOCK_ACCENT[title]||null); }
 
   // ---- build the scaled canvas of absolute blocks ----
   function build(){
@@ -292,12 +322,12 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
       nodes.forEach(function(n){ bodyEl.appendChild(n); });
       (block.dividers||[]).forEach(function(d){ bodyEl.appendChild(makeDividerEl(d)); });
       card.appendChild(bodyEl); canvas.appendChild(card);
-      var bf=state.bandFirst[block.band];
-      if(!bf || block.y<bf.y) state.bandFirst[block.band]={y:block.y, card:card};
+      var sec=sectionFor(block.title), bf=state.bandFirst[sec];
+      if(!bf || block.y<bf.y) state.bandFirst[sec]={y:block.y, card:card};
     });
     wrap.appendChild(canvas); main.appendChild(wrap);
     BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
-      var t=el("div","tab",b.id.toUpperCase()); t.id="tab"+i;
+      var t=el("div","tab",b.label); t.id="tab"+i;
       t.onclick=function(){ var f=state.bandFirst[b.id]; if(f) f.card.scrollIntoView({behavior:"smooth",block:"start"}); };
       tabs.appendChild(t); });
     // native canvas extent = lowest/rightmost block edges (blocks can sit past the
@@ -340,7 +370,7 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     if(!window.IntersectionObserver) return;
     var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(!e.isIntersecting) return;
       var id=e.target.getAttribute("data-band");
-      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel",b.id===id); }); }); },{rootMargin:"-90px 0px -75% 0px"});
+      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel",b.id===id); }); }); },{rootMargin:"-72px 0px -72% 0px"});
     BANDS.forEach(function(b){ var f=state.bandFirst[b.id]; if(f){ f.card.setAttribute("data-band",b.id); io.observe(f.card); } });
   }
 
