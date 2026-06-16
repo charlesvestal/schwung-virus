@@ -328,7 +328,11 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     wrap.appendChild(canvas); main.appendChild(wrap);
     BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
       var t=el("div","tab",b.label); t.id="tab"+i;
-      t.onclick=function(){ var f=state.bandFirst[b.id]; if(f) f.card.scrollIntoView({behavior:"smooth",block:"start"}); };
+      t.onclick=function(){ var f=state.bandFirst[b.id]; if(!f) return;
+        // scroll only the iframe's own window (scrollIntoView would also scroll the parent page)
+        var tb=document.querySelector(".topbar"), off=(tb?tb.offsetHeight:60)+4;
+        var y=f.card.getBoundingClientRect().top + window.scrollY - off;
+        window.scrollTo({top:Math.max(0,y), behavior:"smooth"}); };
       tabs.appendChild(t); });
     // native canvas extent = lowest/rightmost block edges (blocks can sit past the
     // nominal design width, so scale to whatever actually fits)
@@ -366,12 +370,25 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   }
   var rT; window.addEventListener("resize",function(){ clearTimeout(rT); rT=setTimeout(relayout,120); });
   document.getElementById("zoom").oninput=relayout;
+  // Deterministic scroll-spy: highlight the last section whose first card has
+  // passed under the sticky topbar. Works from first paint (OSC selected at top)
+  // and tracks every scroll — no IntersectionObserver transition needed.
   function setupScrollSpy(){
-    if(!window.IntersectionObserver) return;
-    var io=new IntersectionObserver(function(es){ es.forEach(function(e){ if(!e.isIntersecting) return;
-      var id=e.target.getAttribute("data-band");
-      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel",b.id===id); }); }); },{rootMargin:"-72px 0px -72% 0px"});
-    BANDS.forEach(function(b){ var f=state.bandFirst[b.id]; if(f){ f.card.setAttribute("data-band",b.id); io.observe(f.card); } });
+    var tops=[];
+    BANDS.forEach(function(b,j){ var f=state.bandFirst[b.id]; if(f) tops.push({id:b.id, j:j, card:f.card}); });
+    if(!tops.length) return;
+    function update(){
+      var tb=document.querySelector(".topbar");
+      var line=(tb?tb.getBoundingClientRect().bottom:60)+6;
+      var cur=tops[0];
+      for(var k=0;k<tops.length;k++){ if(tops[k].card.getBoundingClientRect().top - line <= 1) cur=tops[k]; }
+      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel", b.id===cur.id); });
+    }
+    if(state._spy){ window.removeEventListener("scroll",state._spy); window.removeEventListener("resize",state._spy); }
+    state._spy=update;
+    window.addEventListener("scroll",update,{passive:true});
+    window.addEventListener("resize",update);
+    update();   // initial highlight (OSC at top)
   }
 
   // ---- preset / bank / octave ----
@@ -420,7 +437,11 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
 
   setStatus("connecting…","");
   remote.onParamChange(applyParamUpdate);
-  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); build(); setStatus("connected","ok"); seedValues(); });
+  // Render the panel immediately from the embedded layout (default model A) so the
+  // UI never waits on a manager round-trip; values + actual model stream in after.
+  build();
+  seedValues();
+  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); setStatus("connected","ok"); });
 })();
 </script>
 </body>
