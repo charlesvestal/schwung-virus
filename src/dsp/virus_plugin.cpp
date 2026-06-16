@@ -476,7 +476,7 @@ static const virus_param_t g_params[] = {
     {"filter2_env_polarity", "Flt2 Env Pol",     VIRUS_PAGE_B, 31, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_env_polarity)},
     {"filter2_cutoff_link",  "Flt2 Cut Link",    VIRUS_PAGE_B, 32, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
     {"filter_keytrack_base", "Flt KeyTrk Base",  VIRUS_PAGE_B, 33, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_ALL, OPTS(opts_osc_fm_mode)},
+    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_BC,  OPTS(opts_osc_fm_mode)},
     {"osc_init_phase",       "Osc Init Phase",   VIRUS_PAGE_B, 35, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"punch_intensity",      "Punch",            VIRUS_PAGE_B, 36, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"bender_range_up",      "Bend Up",          VIRUS_PAGE_B, 26, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -607,6 +607,14 @@ struct virus_shm_t {
     uint8_t cc_seen[128];
     volatile int cc_values_b[128];  /* Page B parameter values */
     uint8_t cc_seen_b[128];         /* Page B parameter seen flags */
+
+    /* Preset-load sync handshake (parent requests, child confirms). A patch
+     * change updates cc_values asynchronously in the child once the emulated
+     * firmware has loaded the new single; get_param("state") blocks briefly on
+     * this so a remote-UI re-read after a preset switch returns the NEW values
+     * instead of the previous patch's. */
+    volatile uint32_t preset_req_gen;   /* parent bumps when it pushes a program change */
+    volatile uint32_t preset_done_gen;  /* child sets = req_gen after it syncs cc_values */
 
     /* Profiling */
     volatile int underrun_count;
@@ -899,10 +907,13 @@ static void child_sync_params_from_preset(virus_shm_t *shm,
         int val = single[offset];
         if (val < g_params[i].min_val) val = g_params[i].min_val;
         if (val > g_params[i].max_val) val = g_params[i].max_val;
-        if (g_params[i].page == VIRUS_PAGE_A)
+        if (g_params[i].page == VIRUS_PAGE_A) {
             shm->cc_values[g_params[i].cc] = val;
-        else
+            shm->cc_seen[g_params[i].cc] = 1;
+        } else {
             shm->cc_values_b[g_params[i].cc] = val;
+            shm->cc_seen_b[g_params[i].cc] = 1;
+        }
     }
 }
 
@@ -991,6 +1002,10 @@ static void child_process_midi_fifo(virus_shm_t *shm,
                 child_sync_params_from_preset(shm, single);
             }
             child_update_preset_name(shm, mc, rom);
+            /* Confirm the preset-load sync so a remote-UI state re-read can
+             * block until cc_values reflect the new patch (see get_param). */
+            __sync_synchronize();
+            shm->preset_done_gen = shm->preset_req_gen;
             processed++;
             continue;
         }
@@ -1792,6 +1807,18 @@ static int json_get_int(const char *json, const char *key, int *out) {
     return 0;
 }
 
+/* Copy src into dst with minimal JSON-string escaping (" and \) so a value
+ * (e.g. a user-bank name) embedded in the state blob can't break the manager's
+ * JSON parse. Always NUL-terminates; truncates safely if it won't fit. */
+static void json_escape_into(char *dst, int cap, const char *src) {
+    int n = 0;
+    for (const char *p = src; *p && n < cap - 2; p++) {
+        if (*p == '"' || *p == '\\') dst[n++] = '\\';
+        dst[n++] = *p;
+    }
+    dst[n] = 0;
+}
+
 static void v2_set_param(void *instance, const char *key, const char *val) {
     virus_instance_t *inst = (virus_instance_t*)instance;
     if (!inst || !inst->shm) return;
@@ -1847,6 +1874,10 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (has_preset) {
             clear_param_overrides(shm);
             shm->current_preset = preset_from_state;
+            /* Open a preset-sync request before queuing the PC so the child
+             * confirms against this generation once it has loaded the single. */
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t cc32[3] = { 0xB0, 32, bank_index_to_midi_lsb(shm->current_bank, shm->bank_count) };
             midi_fifo_push(shm, cc32, 3);
             uint8_t pc[2] = { 0xC0, (uint8_t)shm->current_preset };
@@ -1887,6 +1918,8 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             }
             clear_param_overrides(shm);
             shm->current_preset = idx;
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t pc[2] = { 0xC0, (uint8_t)idx };
             midi_fifo_push(shm, pc, 2);
             shm_refresh_current_preset_name(shm);
@@ -1909,6 +1942,8 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                 snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "%s", g_user_banks[idx - g_rom_bank_count].name);
             else
                 snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %d", idx + 1);
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t cc32[3] = { 0xB0, 32, bank_index_to_midi_lsb(idx, shm->bank_count) };
             midi_fifo_push(shm, cc32, 3);
             uint8_t pc[2] = { 0xC0, 0 };
@@ -2359,12 +2394,31 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             return snprintf(buf, buf_len, "%d", get_param_value(shm, &g_params[i]));
 
     if (strcmp(key, "state") == 0) {
+        /* A preset change updates cc_values asynchronously in the forked DSP
+         * child once the emulated firmware has loaded the new single. Briefly
+         * block here so a remote-UI state re-read right after a preset switch
+         * serializes the NEW patch's values instead of the previous one's.
+         * Capped well under the host's ~200ms param idle timeout. */
+        uint32_t req = shm->preset_req_gen;
+        __sync_synchronize();
+        for (int i = 0; i < 240 && shm->preset_done_gen != req; i++) {
+            usleep(500);
+            __sync_synchronize();
+        }
         int off = 0;
         off += snprintf(buf+off, buf_len-off, "{\"state_version\":%d,\"bank\":%d,\"preset\":%d,\"octave_transpose\":%d",
             VIRUS_STATE_VERSION, shm->current_bank, shm->current_preset, shm->octave_transpose);
         off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d",
             shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40,
             shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index);
+        /* Preset-browser metadata for the remote UI. getParam in the manager is
+         * cache-only, so these have to ride the bulk state seed (which the host
+         * also re-reads after every preset/bank change) to reach the browser. */
+        char bank_name_esc[64];
+        json_escape_into(bank_name_esc, sizeof(bank_name_esc), (const char*)shm->bank_name);
+        off += snprintf(buf+off, buf_len-off,
+            ",\"bank_index\":%d,\"bank_count\":%d,\"preset_count\":%d,\"patch_in_bank\":%d,\"bank_name\":\"%s\"",
+            shm->current_bank, shm->bank_count, shm->preset_count, shm->current_preset + 1, bank_name_esc);
         for (int i = 0; i < NUM_PARAMS; i++) {
             if (!is_param_seen(shm, &g_params[i])) continue;
             off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
