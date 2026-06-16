@@ -63,6 +63,7 @@ mkdir -p dist/osirus
 cat src/module.json > dist/osirus/module.json
 [ -f src/help.json ] && cat src/help.json > dist/osirus/help.json
 cat src/ui.js > dist/osirus/ui.js
+[ -f src/web_ui.html ] && cat src/web_ui.html > dist/osirus/web_ui.html
 cat build/dsp.so > dist/osirus/dsp.so
 chmod +x dist/osirus/dsp.so
 
