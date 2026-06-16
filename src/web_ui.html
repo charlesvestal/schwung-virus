@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Osirus Editor</title>
+<style>
+  /* Access Virus cue: graphite metal panel, wooden end-cheeks, black/red LCD
+     header, red knob pointers + LED accents. Blocks are absolute-positioned per
+     the custom layout (tools/osiruslayout.json) and the whole canvas is scaled
+     to the iframe width. */
+  :root{
+    --metal1:#41454b; --metal2:#33363b; --metal3:#2a2c30;
+    --recess:#212327; --recess2:#191b1e; --edge:#15161a; --hair:rgba(255,255,255,.05);
+    --ink:#eceef1; --dim:#9b9fa6; --label:#c6c9cf;
+    --red:#d8362b; --red2:#ff5347; --knob1:#2c2e33; --knob2:#0c0d10; --track:#16181b; --r:5px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:#000;color:var(--ink);
+    font:12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
+  body::before,body::after{content:"";position:fixed;top:0;bottom:0;width:13px;z-index:40;pointer-events:none}
+  body::before{left:0;background:linear-gradient(90deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
+  body::after{right:0;background:linear-gradient(270deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
+  #app{min-height:100%;margin:0 13px;
+    background:linear-gradient(180deg,#0b0b0c,#070708);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
+  .hidden{display:none!important}
+
+  /* header */
+  .topbar{position:sticky;top:0;z-index:30}
+  header{position:relative;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
+    padding:4px 10px;background:linear-gradient(180deg,#101113,#0a0b0c);border-bottom:1px solid #000}
+  .brand{font-weight:800;letter-spacing:2.5px;color:var(--red);font-size:14px;text-shadow:0 0 10px rgba(216,54,43,.4)}
+  .brand small{color:#6a6d73;font-weight:600;letter-spacing:.5px;font-size:9px;margin-left:5px}
+  .badge{font-size:10px;font-weight:800;color:#1a0c0a;background:var(--red);border-radius:3px;padding:2px 7px;box-shadow:0 0 8px rgba(216,54,43,.5)}
+  /* bright yellow-green character-LCD (Crystalfontz/Virus style) */
+  .lcd{display:flex;align-items:center;gap:6px;border:1px solid #4a5810;border-radius:4px;padding:4px 8px;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 2px),repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0 1px,transparent 1px 2px),linear-gradient(180deg,#c4dc36,#a9c521);
+    box-shadow:inset 0 0 10px rgba(60,80,8,.4),inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 rgba(255,255,255,.05)}
+  .lcd .name{min-width:140px;max-width:220px;text-align:center;color:#172207;font-weight:700;
+    font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(255,255,255,.2)}
+  .lcd .idx{font-variant-numeric:tabular-nums;color:#243405;min-width:52px;text-align:center;font-size:11px;font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  .lcd .bank{color:#243405;font-size:10px;letter-spacing:.5px;min-width:58px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-weight:700}
+  .lcd button.nav{background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.08));border:1px solid rgba(40,50,8,.45);color:#1d2a06;box-shadow:none}
+  .lcd button.nav:hover{border-color:#3a4808;color:#000}
+  .grp{display:flex;align-items:center;gap:5px}
+  .hl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#6a6d73}
+  .zoomgrp .hl{font-size:14px;letter-spacing:0;color:#8a8d93}
+  .zoomgrp{gap:3px}
+  #zoom{width:90px;height:14px}
+  button.nav{background:linear-gradient(180deg,#2b2d31,#1a1c1f);border:1px solid #000;color:var(--ink);
+    border-radius:4px;padding:4px 9px;cursor:pointer;font-size:13px;box-shadow:0 1px 0 rgba(255,255,255,.06)}
+  button.nav:hover{border-color:var(--red);color:#fff}
+  button.nav:active{background:#141517}
+  #status{font-size:10px;color:#6a6d73;display:flex;align-items:center;gap:5px}
+  #dot{width:8px;height:8px;border-radius:50%;background:#3a1411}
+  #dot.ok{background:var(--red2);box-shadow:0 0 7px rgba(255,83,71,.8)} #dot.err{background:#ffd23a}
+
+  /* jump-link bar */
+  .tabs{position:relative;z-index:25;display:flex;flex-wrap:wrap;gap:3px;padding:5px 12px;
+    background:linear-gradient(180deg,#1a1c1f,#141518);border-bottom:1px solid #000}
+  .tab{padding:4px 14px;border-radius:3px;cursor:pointer;font-weight:700;font-size:11px;letter-spacing:1px;
+    color:var(--dim);border:1px solid transparent;text-transform:uppercase}
+  .tab:hover{color:var(--ink)}
+  .tab.sel{color:#1a0c0a;background:linear-gradient(180deg,var(--red2),var(--red));border-color:#000;box-shadow:0 0 9px rgba(216,54,43,.45)}
+
+  /* scaled canvas of absolute blocks */
+  main{padding:0;overflow-x:auto}
+  .pagewrap{position:relative;overflow:hidden}
+  .canvas{position:absolute;top:0;left:0;transform-origin:top left}
+  /* Every panel is the Virus oscillator red; --accent (rgb triplet) is the
+     per-section header shade — black/gray. Controls render white/gray on top. */
+  /* subtle vertical gradient (lightest at centre) + very fine horizontal stripes */
+  .block{position:absolute;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 50%,rgba(0,0,0,.16)),rgb(196,52,40);
+    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 6px 4px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 7px rgba(0,0,0,.6)}
+  /* powder-coat grain: grayscale fractal noise blended over the panel */
+  .block::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;z-index:0;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:140px 140px;mix-blend-mode:overlay;opacity:.55}
+  .block > *{position:relative;z-index:1}
+  .bhead{display:flex;align-items:center;gap:5px;margin:0 -6px 2px;padding:3px 6px;
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.28)),rgb(var(--accent,34,34,36));
+    border-bottom:1px solid rgba(0,0,0,.5);box-shadow:inset 0 -1px 0 rgba(255,255,255,.05);border-radius:var(--r) var(--r) 0 0}
+  .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .bhead .led{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 4px rgba(255,255,255,.5);flex:none}
+
+  .controls{position:relative}
+  .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
+  .ctl.pkdim{opacity:.3}   /* osc wave-select / pulse-width sidelined by current Shape zone */
+  .ctl > label{font-size:7.1px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.05;height:15px;
+    overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .ctl .val{font-size:8.2px;color:rgba(255,255,255,.85);min-height:9px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
+  .knobsvg{width:40px;height:40px;display:block;margin:-4px 0 -8px;cursor:ns-resize;touch-action:none}
+  .kbody{fill:url(#kgrad);stroke:#000;stroke-width:1}
+  .karc{fill:none;stroke:rgba(0,0,0,.5);stroke-width:3;stroke-linecap:round}
+  .kfill{fill:none;stroke:rgba(245,242,236,.42);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
+  .kptr{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
+  .ctl.sel select{width:100%;height:22px;background:linear-gradient(180deg,#1d1e21,#101113);border:1px solid #000;border-radius:4px;
+    color:#ff5142;font-size:7.8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:0 3px;cursor:pointer;text-align:center;text-align-last:center}
+  .ctl.sel select option{color:#ff5142;background:#141519;text-transform:uppercase}
+  .ctl.sel select:hover{border-color:rgba(255,255,255,.4)}
+  .sw{width:42px;height:22px;border-radius:11px;background:rgba(0,0,0,.45);border:1px solid #000;position:relative;cursor:pointer;transition:background .12s}
+  .sw .dot{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#54585f;transition:.12s}
+  .sw.on{background:rgba(255,255,255,.28)}
+  .sw.on .dot{left:22px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
+  .divider{position:absolute;z-index:6;border-radius:1px}
+  .divider.dv{background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
+  .divider.dh{background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
+
+  footer{padding:10px 12px 18px;color:#6a6d73;font-size:9.5px;text-align:center;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <radialGradient id="kgrad" cx="38%" cy="30%" r="75%"><stop offset="0%" stop-color="#3a3d43"/><stop offset="55%" stop-color="#2c2e33"/><stop offset="100%" stop-color="#0c0d10"/></radialGradient>
+</defs></svg>
+<div id="app">
+  <div class="topbar">
+  <header>
+    <div class="brand">OSIRUS<small>SCHWUNG EDITOR</small></div>
+    <span id="modelBadge" class="badge">A</span>
+    <div class="lcd">
+      <button class="nav" id="bPrev" title="Prev bank">«</button>
+      <span class="bank" id="bName">—</span>
+      <button class="nav" id="bNext" title="Next bank">»</button>
+      <button class="nav" id="pPrev" title="Prev patch">‹</button>
+      <span class="name" id="pName">—</span>
+      <span class="idx" id="pIdx"></span>
+      <button class="nav" id="pNext" title="Next patch">›</button>
+    </div>
+    <div class="grp"><span class="hl">Oct</span>
+      <button class="nav" id="oDown">−</button><span class="idx" id="oVal" style="color:var(--dim);min-width:26px;text-align:center">0</span><button class="nav" id="oUp">+</button></div>
+    <div class="grp zoomgrp"><span class="hl" title="Zoom">⌕</span>
+      <input id="zoom" type="range" min="0.5" max="2" step="0.05" value="1" title="Zoom"></div>
+    <button class="nav" id="syncBtn" title="Re-sync from device">⟳</button>
+    <div id="status"><span id="dot"></span><span id="statusText">connecting…</span></div>
+  </header>
+  <nav class="tabs" id="tabs"></nav>
+  </div>
+  <main id="main"></main>
+  <footer>OSIRUS · Access Virus emulator (Gearmulator) · monotimbral single-patch editor</footer>
+</div>
+
+<script src="/static/schwung-remote-api.js"></script>
+<script>
+/* AUTO-GENERATED by scripts/gen_web_ui_params.py from virus_plugin.cpp. */
+/* Do not edit by hand — re-run the generator if g_params changes.       */
+var OPTS = {"opts_filter1_mode": ["LowPass", "HighPass", "BandPass", "BandStop", "Analog 1P", "Analog 2P", "Analog 3P", "Analog 4P"], "opts_filter2_mode": ["LowPass", "HighPass", "BandPass", "BandStop"], "opts_filter_routing": ["Serial 4", "Serial 6", "Parallel 4", "Split"], "opts_filter_select": ["Filter 1", "Filter 2", "Filter 1+2"], "opts_sat_curve": ["Off", "Light", "Soft", "Middle", "Hard", "Digital", "Shaper", "Rectifier", "BitReducer", "RateReducer", "Rate+Flw", "LowPass", "Low+Flw", "HighPass", "High+Flw"], "opts_dist_curve": ["Off", "Light", "Soft", "Middle", "Hard", "Digital", "Shaper", "Rectifier", "BitReducer", "RateReducer", "LowPass", "HighPass"], "opts_key_mode": ["Poly", "Mono 1", "Mono 2", "Mono 3", "Mono 4", "Hold"], "opts_unison_mode": ["Off", "Twin", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], "opts_input_mode": ["Off", "Dynamic", "Static", "To Effects"], "opts_delay_reverb_mode": ["Off", "Delay", "Reverb", "Rev+Fb1", "Rev+Fb2", "Dly 2:1", "Dly 4:3", "Dly 4:1", "Dly 8:7", "Pat 1+1", "Pat 2+1", "Pat 3+1", "Pat 4+1", "Pat 5+1", "Pat 2+3", "Pat 2+5", "Pat 3+2", "Pat 3+3", "Pat 3+4", "Pat 3+5", "Pat 4+3", "Pat 4+5", "Pat 5+2", "Pat 5+3", "Pat 5+4", "Pat 5+5", "Pat X+Y"], "opts_delay_lfo_shape": ["Sine", "Triangle", "Saw", "Square", "S&H", "S&G"], "opts_arp_mode": ["Off", "Up", "Down", "Up&Down", "As Played", "Random", "Chord"], "opts_arp_octaves": ["1", "2", "3", "4"], "opts_off_on": ["Off", "On"], "opts_lfo_mode": ["Poly", "Mono"], "opts_lfo3_dest": ["Osc1", "Osc1+2", "Osc2", "PW1", "PW1+2", "PW2"], "opts_sub_osc_shape": ["Square", "Triangle"], "opts_osc_fm_mode": ["Pos-Tri", "Tri", "Wave", "Noise", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_env_polarity": ["Negative", "Positive"], "opts_mod_source": ["Off", "PitchBnd", "ChanPres", "ModWheel", "Breath", "Contr 3", "Foot", "Data", "Balance", "Contr 9", "Express", "Contr 12", "Contr 13", "Contr 14", "Contr 15", "Contr 16", "HoldPed", "PortaSw", "SostPed", "AmpEnv", "FiltEnv", "Lfo 1", "Lfo 2", "Lfo 3", "VeloOn", "VeloOff", "KeyFlw", "Random"], "opts_phaser_mode": ["Off", "1 Stage", "2 Stages", "3 Stages", "4 Stages", "5 Stages", "6 Stages"], "opts_input_follower": ["Off", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_vocoder_mode": ["Off", "Oscillator", "Osc Hold", "Noise", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_music_div": ["Off", "1/64", "1/32", "1/16", "1/8", "1/4", "1/2", "3/64", "3/32", "3/16", "3/8", "1/24", "1/12", "1/6", "1/3", "2/3", "3/4", "1/1", "2/1", "4/1", "8/1", "16/1"], "opts_osc_wave": ["Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_lfo_shape": ["Sine", "Triangle", "Saw", "Square", "S&H", "S&G", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_osc3_mode": ["Off", "Slave", "Saw", "Pulse", "Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_mod_dest": ["Off", "PatchVol", "ChannelVol", "Panorama", "Transpose", "Portamento", "Osc1Shape", "Osc1PlsWdh", "Osc1WavSel", "Osc1Pitch", "Osc1Keyflw", "Osc2Shape", "Osc2PlsWdh", "Osc2WavSel", "Osc2Pitch", "Osc2Detune", "Osc2FmAmt", "Osc2EnvAmt", "FmEnvAmt", "Osc2Keyflw", "OscBalance", "SubOscVol", "OscMainVol", "NoiseVol", "Cutoff", "Cutoff2", "Filt1Reso", "Filt2Reso", "Flt1EnvAmt", "Flt2EnvAmt", "Flt1Keyflw", "Flt2Keyflw", "FltBalance", "FltAttack", "FltDecay", "FltSustain", "FltSusTime", "FltRelease", "AmpAttack", "AmpDecay", "AmpSustain", "AmpSusTime", "AmpRelease", "Lfo1Rate", "Lfo1Cont", "Lfo1>Osc1", "Lfo1>Osc2", "Lfo1>PlsWd", "Lfo1>Reso", "Lfo1>FltGn", "Lfo2Rate", "Lfo2Cont", "Lfo2>Shape", "Lfo2>Fm", "Lfo2>Cut1", "Lfo2>Cut2", "Lfo2>Pan", "Lfo3Rate", "Lfo3OscAmt", "UniDetune", "UniSpread", "UniLfoPhs", "ChorusMix", "ChorusRate", "ChorusDpth", "ChorusDly", "ChorusFeed", "EffectSend", "DelayTime", "DelayFeed", "DelayRate", "DelayDepth", "Osc1ShpVel", "Osc2ShpVel", "PlsWhdVel", "FmAmtVel", "Flt1EnvVel", "Flt2EnvVel", "Reso1Vel", "Reso2Vel", "AmpVel", "PanVel", "Ass1Amt1", "Ass2Amt1", "Ass2Amt2", "Ass3Amt1", "Ass3Amt2", "Ass3Amt3", "OscInitPhs", "PunchInt", "RingMod", "NoiseColor", "DelayColor", "ABoostInt", "ABoostTune", "DistInt", "RingmodMix", "Osc3Volume", "Osc3Semi", "Osc3Detune", "Lfo1AssAmt", "Lfo2AssAmt", "PhaserMix", "PhaserRate", "PhaserDept", "PhaserFreq", "PhaserFdbk", "PhaserSprd", "RevbDecay", "RevDamping", "RevbColor", "RevPredely", "RevFeedbck", "SecBalance", "ArpNoteLen", "ArpSwing", "ArpPattern", "EqMidGain", "EqMidFreq", "EqMidQFact", "Assign4Amt", "Assign5Amt", "Assign6Amt"]};
+var PARAMS = {"osc1_shape": {"name": "Osc1 Shape", "page": 0, "cc": 17, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_pulsewidth": {"name": "Osc1 PW", "page": 0, "cc": 18, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_wave_select": {"name": "Osc1 Wave", "page": 0, "cc": 19, "min": 0, "max": 63, "model": 0, "opts": "opts_osc_wave"}, "osc1_semitone": {"name": "Osc1 Semi", "page": 0, "cc": 20, "min": 16, "max": 112, "model": 0, "opts": null}, "osc1_keyfollow": {"name": "Osc1 KeyFlw", "page": 0, "cc": 21, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_shape": {"name": "Osc2 Shape", "page": 0, "cc": 22, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_pulsewidth": {"name": "Osc2 PW", "page": 0, "cc": 23, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_wave_select": {"name": "Osc2 Wave", "page": 0, "cc": 24, "min": 0, "max": 63, "model": 0, "opts": "opts_osc_wave"}, "osc2_semitone": {"name": "Osc2 Semi", "page": 0, "cc": 25, "min": 16, "max": 112, "model": 0, "opts": null}, "osc2_detune": {"name": "Osc2 Detune", "page": 0, "cc": 26, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_fm_amount": {"name": "Osc2 FM Amt", "page": 0, "cc": 27, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_sync": {"name": "Osc2 Sync", "page": 0, "cc": 28, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "osc2_filt_env_amt": {"name": "Osc2 FiltEnv", "page": 0, "cc": 29, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_filt_env_amt": {"name": "FM FiltEnv", "page": 0, "cc": 30, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_keyfollow": {"name": "Osc2 KeyFlw", "page": 0, "cc": 31, "min": 0, "max": 127, "model": 0, "opts": null}, "osc_balance": {"name": "Osc Balance", "page": 0, "cc": 33, "min": 0, "max": 127, "model": 0, "opts": null}, "sub_osc_volume": {"name": "Sub Volume", "page": 0, "cc": 34, "min": 0, "max": 127, "model": 0, "opts": null}, "sub_osc_shape": {"name": "Sub Shape", "page": 0, "cc": 35, "min": 0, "max": 1, "model": 0, "opts": "opts_sub_osc_shape"}, "osc_mainvolume": {"name": "Osc Volume", "page": 0, "cc": 36, "min": 0, "max": 127, "model": 0, "opts": null}, "noise_volume": {"name": "Noise Vol", "page": 0, "cc": 37, "min": 0, "max": 127, "model": 0, "opts": null}, "ringmod_volume": {"name": "Ring Mod Vol", "page": 0, "cc": 38, "min": 0, "max": 127, "model": 0, "opts": null}, "noise_color": {"name": "Noise Color", "page": 0, "cc": 39, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff": {"name": "Cutoff", "page": 0, "cc": 40, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff2_offset": {"name": "Cutoff2 Ofs", "page": 0, "cc": 41, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_resonance": {"name": "Filt1 Reso", "page": 0, "cc": 42, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_resonance": {"name": "Filt2 Reso", "page": 0, "cc": 43, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_env_amt": {"name": "Filt1 EnvAmt", "page": 0, "cc": 44, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_env_amt": {"name": "Filt2 EnvAmt", "page": 0, "cc": 45, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_keyfollow": {"name": "Filt1 KeyFlw", "page": 0, "cc": 46, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_keyfollow": {"name": "Filt2 KeyFlw", "page": 0, "cc": 47, "min": 0, "max": 127, "model": 0, "opts": null}, "filter_balance": {"name": "Filt Balance", "page": 0, "cc": 48, "min": 0, "max": 127, "model": 0, "opts": null}, "saturation_curve": {"name": "Saturation", "page": 0, "cc": 49, "min": 0, "max": 14, "model": 0, "opts": "opts_sat_curve"}, "filter1_mode": {"name": "Filt1 Mode", "page": 0, "cc": 51, "min": 0, "max": 7, "model": 0, "opts": "opts_filter1_mode"}, "filter2_mode": {"name": "Filt2 Mode", "page": 0, "cc": 52, "min": 0, "max": 3, "model": 0, "opts": "opts_filter2_mode"}, "filter_routing": {"name": "Filt Routing", "page": 0, "cc": 53, "min": 0, "max": 3, "model": 0, "opts": "opts_filter_routing"}, "flt_attack": {"name": "Flt Attack", "page": 0, "cc": 54, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_decay": {"name": "Flt Decay", "page": 0, "cc": 55, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_sustain": {"name": "Flt Sustain", "page": 0, "cc": 56, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_sustain_time": {"name": "Flt Sus Time", "page": 0, "cc": 57, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_release": {"name": "Flt Release", "page": 0, "cc": 58, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_attack": {"name": "Amp Attack", "page": 0, "cc": 59, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_decay": {"name": "Amp Decay", "page": 0, "cc": 60, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_sustain": {"name": "Amp Sustain", "page": 0, "cc": 61, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_sustain_time": {"name": "Amp Sus Time", "page": 0, "cc": 62, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_release": {"name": "Amp Release", "page": 0, "cc": 63, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_rate": {"name": "LFO1 Rate", "page": 0, "cc": 67, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_shape": {"name": "LFO1 Shape", "page": 0, "cc": 68, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo1_env_mode": {"name": "LFO1 Env Mode", "page": 0, "cc": 69, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "lfo1_mode": {"name": "LFO1 Mode", "page": 0, "cc": 70, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo1_symmetry": {"name": "LFO1 Symmetry", "page": 0, "cc": 71, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_keyfollow": {"name": "LFO1 KeyFlw", "page": 0, "cc": 72, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_keytrigger": {"name": "LFO1 KeyTrig", "page": 0, "cc": 73, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_lfo1_amount": {"name": "Osc1 LFO1", "page": 0, "cc": 74, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_lfo1_amount": {"name": "Osc2 LFO1", "page": 0, "cc": 75, "min": 0, "max": 127, "model": 0, "opts": null}, "pw_lfo1_amount": {"name": "PW LFO1", "page": 0, "cc": 76, "min": 0, "max": 127, "model": 0, "opts": null}, "reso_lfo1_amount": {"name": "Reso LFO1", "page": 0, "cc": 77, "min": 0, "max": 127, "model": 0, "opts": null}, "filtgain_lfo1_amount": {"name": "FiltGain LFO1", "page": 0, "cc": 78, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_rate": {"name": "LFO2 Rate", "page": 0, "cc": 79, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_shape": {"name": "LFO2 Shape", "page": 0, "cc": 80, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo2_env_mode": {"name": "LFO2 Env Mode", "page": 0, "cc": 81, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "lfo2_mode": {"name": "LFO2 Mode", "page": 0, "cc": 82, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo2_symmetry": {"name": "LFO2 Symmetry", "page": 0, "cc": 83, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_keyfollow": {"name": "LFO2 KeyFlw", "page": 0, "cc": 84, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_keytrigger": {"name": "LFO2 KeyTrig", "page": 0, "cc": 85, "min": 0, "max": 127, "model": 0, "opts": null}, "shape_lfo2_amount": {"name": "Shape LFO2", "page": 0, "cc": 86, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_lfo2_amount": {"name": "FM LFO2", "page": 0, "cc": 87, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff1_lfo2_amount": {"name": "Cut1 LFO2", "page": 0, "cc": 88, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff2_lfo2_amount": {"name": "Cut2 LFO2", "page": 0, "cc": 89, "min": 0, "max": 127, "model": 0, "opts": null}, "pan_lfo2_amount": {"name": "Pan LFO2", "page": 0, "cc": 90, "min": 0, "max": 127, "model": 0, "opts": null}, "patch_volume": {"name": "Volume", "page": 0, "cc": 91, "min": 0, "max": 127, "model": 0, "opts": null}, "panorama": {"name": "Panorama", "page": 0, "cc": 10, "min": 0, "max": 127, "model": 0, "opts": null}, "transpose": {"name": "Transpose", "page": 0, "cc": 93, "min": 0, "max": 127, "model": 0, "opts": null}, "key_mode": {"name": "Key Mode", "page": 0, "cc": 94, "min": 0, "max": 5, "model": 0, "opts": "opts_key_mode"}, "unison_mode": {"name": "Unison Mode", "page": 0, "cc": 97, "min": 0, "max": 15, "model": 0, "opts": "opts_unison_mode"}, "unison_detune": {"name": "Unison Detune", "page": 0, "cc": 98, "min": 0, "max": 127, "model": 0, "opts": null}, "unison_pan_spread": {"name": "Unison Pan", "page": 0, "cc": 99, "min": 0, "max": 127, "model": 0, "opts": null}, "unison_lfo_phase": {"name": "Unison LFO Ph", "page": 0, "cc": 100, "min": 0, "max": 127, "model": 0, "opts": null}, "input_mode": {"name": "Input Mode", "page": 0, "cc": 101, "min": 0, "max": 3, "model": 0, "opts": "opts_input_mode"}, "portamento_time": {"name": "Portamento", "page": 0, "cc": 5, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_mix": {"name": "Chorus Mix", "page": 0, "cc": 105, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_rate": {"name": "Chorus Rate", "page": 0, "cc": 106, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_depth": {"name": "Chorus Depth", "page": 0, "cc": 107, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_delay": {"name": "Chorus Delay", "page": 0, "cc": 108, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_feedback": {"name": "Chorus Fdbk", "page": 0, "cc": 109, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_lfo_shape": {"name": "Chorus LFO", "page": 0, "cc": 110, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "delay_reverb_mode": {"name": "Dly/Rev Mode", "page": 0, "cc": 112, "min": 0, "max": 26, "model": 0, "opts": "opts_delay_reverb_mode"}, "effect_send": {"name": "Effect Send", "page": 0, "cc": 113, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_time": {"name": "Delay Time", "page": 0, "cc": 114, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_feedback": {"name": "Delay Fdbk", "page": 0, "cc": 115, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_rate_rev_decay": {"name": "Dly Rate/Decay", "page": 0, "cc": 116, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_depth": {"name": "Delay Depth", "page": 0, "cc": 117, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_lfo_shape": {"name": "Delay LFO", "page": 0, "cc": 118, "min": 0, "max": 5, "model": 0, "opts": "opts_delay_lfo_shape"}, "delay_color": {"name": "Delay Color", "page": 0, "cc": 119, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_mode": {"name": "Arp Mode", "page": 1, "cc": 1, "min": 0, "max": 6, "model": 0, "opts": "opts_arp_mode"}, "arp_pattern": {"name": "Arp Pattern", "page": 1, "cc": 2, "min": 0, "max": 63, "model": 0, "opts": null}, "arp_octave_range": {"name": "Arp Octaves", "page": 1, "cc": 3, "min": 0, "max": 3, "model": 0, "opts": "opts_arp_octaves"}, "arp_hold": {"name": "Arp Hold", "page": 1, "cc": 4, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "arp_note_length": {"name": "Arp Length", "page": 1, "cc": 5, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_swing": {"name": "Arp Swing", "page": 1, "cc": 6, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_clock": {"name": "Arp Clock", "page": 1, "cc": 17, "min": 0, "max": 17, "model": 0, "opts": "opts_music_div"}, "lfo3_rate": {"name": "LFO3 Rate", "page": 1, "cc": 7, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_shape": {"name": "LFO3 Shape", "page": 1, "cc": 8, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo3_mode": {"name": "LFO3 Mode", "page": 1, "cc": 9, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo3_keyfollow": {"name": "LFO3 KeyFlw", "page": 1, "cc": 10, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_destination": {"name": "LFO3 Dest", "page": 1, "cc": 11, "min": 0, "max": 5, "model": 0, "opts": "opts_lfo3_dest"}, "osc_lfo3_amount": {"name": "Osc LFO3 Amt", "page": 1, "cc": 12, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_fadein_time": {"name": "LFO3 FadeIn", "page": 1, "cc": 13, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_clock": {"name": "LFO3 Clock", "page": 1, "cc": 21, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "clock_tempo": {"name": "Clock Tempo", "page": 1, "cc": 16, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_clock": {"name": "LFO1 Clock", "page": 1, "cc": 18, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "lfo2_clock": {"name": "LFO2 Clock", "page": 1, "cc": 19, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "delay_clock": {"name": "Delay Clock", "page": 1, "cc": 20, "min": 0, "max": 16, "model": 0, "opts": "opts_music_div"}, "filter1_env_polarity": {"name": "Flt1 Env Pol", "page": 1, "cc": 30, "min": 0, "max": 1, "model": 0, "opts": "opts_env_polarity"}, "filter2_env_polarity": {"name": "Flt2 Env Pol", "page": 1, "cc": 31, "min": 0, "max": 1, "model": 0, "opts": "opts_env_polarity"}, "filter2_cutoff_link": {"name": "Flt2 Cut Link", "page": 1, "cc": 32, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "filter_keytrack_base": {"name": "Flt KeyTrk Base", "page": 1, "cc": 33, "min": 0, "max": 127, "model": 0, "opts": null}, "osc_fm_mode": {"name": "Osc FM Mode", "page": 1, "cc": 34, "min": 0, "max": 12, "model": 0, "opts": "opts_osc_fm_mode"}, "osc_init_phase": {"name": "Osc Init Phase", "page": 1, "cc": 35, "min": 0, "max": 127, "model": 0, "opts": null}, "punch_intensity": {"name": "Punch", "page": 1, "cc": 36, "min": 0, "max": 127, "model": 0, "opts": null}, "bender_range_up": {"name": "Bend Up", "page": 1, "cc": 26, "min": 0, "max": 127, "model": 0, "opts": null}, "bender_range_down": {"name": "Bend Down", "page": 1, "cc": 27, "min": 0, "max": 127, "model": 0, "opts": null}, "filter_select": {"name": "Filter Select", "page": 1, "cc": 122, "min": 0, "max": 2, "model": 0, "opts": "opts_filter_select"}, "osc1_shape_velocity": {"name": "Osc1 Shp Vel", "page": 1, "cc": 47, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_shape_velocity": {"name": "Osc2 Shp Vel", "page": 1, "cc": 48, "min": 0, "max": 127, "model": 0, "opts": null}, "pulsewidth_velocity": {"name": "PW Velocity", "page": 1, "cc": 49, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_amount_velocity": {"name": "FM Amt Vel", "page": 1, "cc": 50, "min": 0, "max": 127, "model": 0, "opts": null}, "flt1_envamt_velocity": {"name": "Flt1 Env Vel", "page": 1, "cc": 54, "min": 0, "max": 127, "model": 0, "opts": null}, "flt2_envamt_velocity": {"name": "Flt2 Env Vel", "page": 1, "cc": 55, "min": 0, "max": 127, "model": 0, "opts": null}, "resonance1_velocity": {"name": "Reso1 Vel", "page": 1, "cc": 56, "min": 0, "max": 127, "model": 0, "opts": null}, "resonance2_velocity": {"name": "Reso2 Vel", "page": 1, "cc": 57, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_velocity": {"name": "Amp Velocity", "page": 1, "cc": 60, "min": 0, "max": 127, "model": 0, "opts": null}, "panorama_velocity": {"name": "Pan Velocity", "page": 1, "cc": 61, "min": 0, "max": 127, "model": 0, "opts": null}, "assign1_source": {"name": "Asgn1 Src", "page": 1, "cc": 64, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign1_destination": {"name": "Asgn1 Dst", "page": 1, "cc": 65, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign1_amount": {"name": "Asgn1 Amt", "page": 1, "cc": 66, "min": 0, "max": 127, "model": 0, "opts": null}, "assign2_source": {"name": "Asgn2 Src", "page": 1, "cc": 67, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign2_dest1": {"name": "Asgn2 Dst1", "page": 1, "cc": 68, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign2_amount1": {"name": "Asgn2 Amt1", "page": 1, "cc": 69, "min": 0, "max": 127, "model": 0, "opts": null}, "assign2_dest2": {"name": "Asgn2 Dst2", "page": 1, "cc": 70, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign2_amount2": {"name": "Asgn2 Amt2", "page": 1, "cc": 71, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_source": {"name": "Asgn3 Src", "page": 1, "cc": 72, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign3_dest1": {"name": "Asgn3 Dst1", "page": 1, "cc": 73, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount1": {"name": "Asgn3 Amt1", "page": 1, "cc": 74, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_dest2": {"name": "Asgn3 Dst2", "page": 1, "cc": 75, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount2": {"name": "Asgn3 Amt2", "page": 1, "cc": 76, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_dest3": {"name": "Asgn3 Dst3", "page": 1, "cc": 77, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount3": {"name": "Asgn3 Amt3", "page": 1, "cc": 78, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_assign_dest": {"name": "LFO1 Asgn Dst", "page": 1, "cc": 79, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "lfo1_assign_amount": {"name": "LFO1 Asgn Amt", "page": 1, "cc": 80, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_assign_dest": {"name": "LFO2 Asgn Dst", "page": 1, "cc": 81, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "lfo2_assign_amount": {"name": "LFO2 Asgn Amt", "page": 1, "cc": 82, "min": 0, "max": 127, "model": 0, "opts": null}, "osc3_mode": {"name": "Osc3 Mode", "page": 1, "cc": 41, "min": 0, "max": 67, "model": 1, "opts": "opts_osc3_mode"}, "osc3_volume": {"name": "Osc3 Volume", "page": 1, "cc": 42, "min": 0, "max": 127, "model": 1, "opts": null}, "osc3_semitone": {"name": "Osc3 Semi", "page": 1, "cc": 43, "min": 16, "max": 112, "model": 1, "opts": null}, "osc3_detune": {"name": "Osc3 Detune", "page": 1, "cc": 44, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_mode": {"name": "Phaser Mode", "page": 1, "cc": 84, "min": 0, "max": 6, "model": 1, "opts": "opts_phaser_mode"}, "phaser_mix": {"name": "Phaser Mix", "page": 1, "cc": 85, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_rate": {"name": "Phaser Rate", "page": 1, "cc": 86, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_depth": {"name": "Phaser Depth", "page": 1, "cc": 87, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_frequency": {"name": "Phaser Freq", "page": 1, "cc": 88, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_feedback": {"name": "Phaser Fdbk", "page": 1, "cc": 89, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_spread": {"name": "Phaser Spread", "page": 1, "cc": 90, "min": 0, "max": 127, "model": 1, "opts": null}, "low_eq_freq": {"name": "Lo EQ Freq", "page": 1, "cc": 45, "min": 0, "max": 127, "model": 1, "opts": null}, "high_eq_freq": {"name": "Hi EQ Freq", "page": 1, "cc": 46, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_gain": {"name": "Mid EQ Gain", "page": 1, "cc": 92, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_freq": {"name": "Mid EQ Freq", "page": 1, "cc": 93, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_q": {"name": "Mid EQ Q", "page": 1, "cc": 94, "min": 0, "max": 127, "model": 1, "opts": null}, "low_eq_gain": {"name": "Lo EQ Gain", "page": 1, "cc": 95, "min": 0, "max": 127, "model": 1, "opts": null}, "high_eq_gain": {"name": "Hi EQ Gain", "page": 1, "cc": 96, "min": 0, "max": 127, "model": 1, "opts": null}, "distortion_curve": {"name": "Dist Curve", "page": 1, "cc": 100, "min": 0, "max": 11, "model": 1, "opts": "opts_dist_curve"}, "distortion_intensity": {"name": "Dist Intensity", "page": 1, "cc": 101, "min": 0, "max": 127, "model": 1, "opts": null}, "bass_intensity": {"name": "Analog Boost", "page": 1, "cc": 97, "min": 0, "max": 127, "model": 1, "opts": null}, "bass_tune": {"name": "Boost Tune", "page": 1, "cc": 98, "min": 0, "max": 127, "model": 1, "opts": null}, "assign4_source": {"name": "Asgn4 Src", "page": 1, "cc": 103, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign4_destination": {"name": "Asgn4 Dst", "page": 1, "cc": 104, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign4_amount": {"name": "Asgn4 Amt", "page": 1, "cc": 105, "min": 0, "max": 127, "model": 1, "opts": null}, "assign5_source": {"name": "Asgn5 Src", "page": 1, "cc": 106, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign5_destination": {"name": "Asgn5 Dst", "page": 1, "cc": 107, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign5_amount": {"name": "Asgn5 Amt", "page": 1, "cc": 108, "min": 0, "max": 127, "model": 1, "opts": null}, "assign6_source": {"name": "Asgn6 Src", "page": 1, "cc": 109, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign6_destination": {"name": "Asgn6 Dst", "page": 1, "cc": 110, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign6_amount": {"name": "Asgn6 Amt", "page": 1, "cc": 111, "min": 0, "max": 127, "model": 1, "opts": null}, "input_follower_mode": {"name": "Input Follower", "page": 1, "cc": 38, "min": 0, "max": 9, "model": 2, "opts": "opts_input_follower"}, "vocoder_mode": {"name": "Vocoder Mode", "page": 1, "cc": 39, "min": 0, "max": 12, "model": 2, "opts": "opts_vocoder_mode"}, "input_ringmod": {"name": "Input RingMod", "page": 1, "cc": 99, "min": 0, "max": 127, "model": 1, "opts": null}};
+var PARAM_ORDER = ["osc1_shape", "osc1_pulsewidth", "osc1_wave_select", "osc1_semitone", "osc1_keyfollow", "osc2_shape", "osc2_pulsewidth", "osc2_wave_select", "osc2_semitone", "osc2_detune", "osc2_fm_amount", "osc2_sync", "osc2_filt_env_amt", "fm_filt_env_amt", "osc2_keyfollow", "osc_balance", "sub_osc_volume", "sub_osc_shape", "osc_mainvolume", "noise_volume", "ringmod_volume", "noise_color", "cutoff", "cutoff2_offset", "filter1_resonance", "filter2_resonance", "filter1_env_amt", "filter2_env_amt", "filter1_keyfollow", "filter2_keyfollow", "filter_balance", "saturation_curve", "filter1_mode", "filter2_mode", "filter_routing", "flt_attack", "flt_decay", "flt_sustain", "flt_sustain_time", "flt_release", "amp_attack", "amp_decay", "amp_sustain", "amp_sustain_time", "amp_release", "lfo1_rate", "lfo1_shape", "lfo1_env_mode", "lfo1_mode", "lfo1_symmetry", "lfo1_keyfollow", "lfo1_keytrigger", "osc1_lfo1_amount", "osc2_lfo1_amount", "pw_lfo1_amount", "reso_lfo1_amount", "filtgain_lfo1_amount", "lfo2_rate", "lfo2_shape", "lfo2_env_mode", "lfo2_mode", "lfo2_symmetry", "lfo2_keyfollow", "lfo2_keytrigger", "shape_lfo2_amount", "fm_lfo2_amount", "cutoff1_lfo2_amount", "cutoff2_lfo2_amount", "pan_lfo2_amount", "patch_volume", "panorama", "transpose", "key_mode", "unison_mode", "unison_detune", "unison_pan_spread", "unison_lfo_phase", "input_mode", "portamento_time", "chorus_mix", "chorus_rate", "chorus_depth", "chorus_delay", "chorus_feedback", "chorus_lfo_shape", "delay_reverb_mode", "effect_send", "delay_time", "delay_feedback", "delay_rate_rev_decay", "delay_depth", "delay_lfo_shape", "delay_color", "arp_mode", "arp_pattern", "arp_octave_range", "arp_hold", "arp_note_length", "arp_swing", "arp_clock", "lfo3_rate", "lfo3_shape", "lfo3_mode", "lfo3_keyfollow", "lfo3_destination", "osc_lfo3_amount", "lfo3_fadein_time", "lfo3_clock", "clock_tempo", "lfo1_clock", "lfo2_clock", "delay_clock", "filter1_env_polarity", "filter2_env_polarity", "filter2_cutoff_link", "filter_keytrack_base", "osc_fm_mode", "osc_init_phase", "punch_intensity", "bender_range_up", "bender_range_down", "filter_select", "osc1_shape_velocity", "osc2_shape_velocity", "pulsewidth_velocity", "fm_amount_velocity", "flt1_envamt_velocity", "flt2_envamt_velocity", "resonance1_velocity", "resonance2_velocity", "amp_velocity", "panorama_velocity", "assign1_source", "assign1_destination", "assign1_amount", "assign2_source", "assign2_dest1", "assign2_amount1", "assign2_dest2", "assign2_amount2", "assign3_source", "assign3_dest1", "assign3_amount1", "assign3_dest2", "assign3_amount2", "assign3_dest3", "assign3_amount3", "lfo1_assign_dest", "lfo1_assign_amount", "lfo2_assign_dest", "lfo2_assign_amount", "osc3_mode", "osc3_volume", "osc3_semitone", "osc3_detune", "phaser_mode", "phaser_mix", "phaser_rate", "phaser_depth", "phaser_frequency", "phaser_feedback", "phaser_spread", "low_eq_freq", "high_eq_freq", "mid_eq_gain", "mid_eq_freq", "mid_eq_q", "low_eq_gain", "high_eq_gain", "distortion_curve", "distortion_intensity", "bass_intensity", "bass_tune", "assign4_source", "assign4_destination", "assign4_amount", "assign5_source", "assign5_destination", "assign5_amount", "assign6_source", "assign6_destination", "assign6_amount", "input_follower_mode", "vocoder_mode", "input_ringmod"];
+/* Bipolar params (Virus "signed"/"pan" display): raw 0-127 with 64 = 0 center.
+   Generated from parameterDescriptions_C.json toText; see gen_web_ui_params.py. */
+var BIPOLAR = {"osc1_semitone":1, "osc1_keyfollow":1, "osc2_semitone":1, "osc2_filt_env_amt":1, "fm_filt_env_amt":1, "osc2_keyfollow":1, "osc_balance":1, "noise_color":1, "cutoff2_offset":1, "filter1_keyfollow":1, "filter2_keyfollow":1, "filter_balance":1, "lfo1_symmetry":1, "osc1_lfo1_amount":1, "osc2_lfo1_amount":1, "pw_lfo1_amount":1, "reso_lfo1_amount":1, "filtgain_lfo1_amount":1, "lfo2_symmetry":1, "shape_lfo2_amount":1, "fm_lfo2_amount":1, "cutoff1_lfo2_amount":1, "cutoff2_lfo2_amount":1, "pan_lfo2_amount":1, "panorama":1, "transpose":1, "unison_lfo_phase":1, "chorus_feedback":1, "delay_color":1, "arp_note_length":1, "bender_range_up":1, "bender_range_down":1, "osc1_shape_velocity":1, "osc2_shape_velocity":1, "pulsewidth_velocity":1, "fm_amount_velocity":1, "flt1_envamt_velocity":1, "flt2_envamt_velocity":1, "resonance1_velocity":1, "resonance2_velocity":1, "amp_velocity":1, "panorama_velocity":1, "assign1_amount":1, "assign2_amount1":1, "assign2_amount2":1, "assign3_amount1":1, "assign3_amount2":1, "assign3_amount3":1, "lfo1_assign_amount":1, "lfo2_assign_amount":1, "osc3_semitone":1, "phaser_feedback":1, "assign4_amount":1, "assign5_amount":1, "assign6_amount":1};
+</script>
+<script>
+/* Custom layout (tools/osiruslayout.json). */
+var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"band":"osc","title":"Osc 1","cols":5,"x":8,"y":8,"w":null,"h":152,"controls":[{"key":"osc1_wave_select","col":0,"row":0,"span":2},{"key":"osc1_shape","col":2,"row":0,"span":1},{"key":"osc1_pulsewidth","col":3,"row":0,"span":1},{"key":"osc1_semitone","col":0,"row":1,"span":1},{"key":"osc1_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Osc 2","cols":10,"x":256,"y":8,"w":null,"h":152,"controls":[{"key":"osc2_wave_select","col":0,"row":0,"span":2},{"key":"osc2_shape","col":2,"row":0,"span":1},{"key":"osc2_pulsewidth","col":3,"row":0,"span":1},{"key":"osc2_semitone","col":0,"row":1,"span":1},{"key":"osc2_detune","col":1,"row":1,"span":1},{"key":"osc2_sync","col":4,"row":0,"span":1},{"key":"osc2_fm_amount","col":5,"row":1,"span":1},{"key":"osc_fm_mode","col":5,"row":0,"span":2},{"key":"osc2_filt_env_amt","col":3,"row":1,"span":1},{"key":"fm_filt_env_amt","col":6,"row":1,"span":1},{"key":"osc2_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Common","cols":3,"x":400,"y":196,"w":248,"h":84,"controls":[{"key":"osc_init_phase","col":0,"row":0,"span":1},{"key":"punch_intensity","col":1,"row":0,"span":1},{"key":"noise_color","col":2,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Unison","cols":5,"x":8,"y":196,"w":368,"h":84,"controls":[{"key":"unison_mode","col":0,"row":0,"span":2},{"key":"unison_detune","col":2,"row":0,"span":1},{"key":"unison_pan_spread","col":3,"row":0,"span":1},{"key":"unison_lfo_phase","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Mixer","cols":2,"x":672,"y":8,"w":136,"h":200,"controls":[{"key":"osc_balance","col":0,"row":0,"span":1},{"key":"osc_mainvolume","col":1,"row":0,"span":1},{"key":"sub_osc_volume","col":0,"row":1,"span":1},{"key":"noise_volume","col":1,"row":1,"span":1},{"key":"ringmod_volume","col":0,"row":2,"span":1},{"key":"sub_osc_shape","col":0,"row":3,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 1","cols":4,"x":8,"y":316,"w":null,"h":136,"controls":[{"key":"cutoff","col":0,"row":0,"span":1},{"key":"filter1_resonance","col":1,"row":0,"span":1},{"key":"filter1_env_amt","col":2,"row":0,"span":1},{"key":"filter1_keyfollow","col":3,"row":0,"span":1},{"key":"filter1_mode","col":0,"row":1,"span":2},{"key":"filter1_env_polarity","col":2,"row":1,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 2","cols":4,"x":256,"y":316,"w":216,"h":112,"controls":[{"key":"cutoff2_offset","col":0,"row":0,"span":1},{"key":"filter2_resonance","col":1,"row":0,"span":1},{"key":"filter2_env_amt","col":2,"row":0,"span":1},{"key":"filter2_keyfollow","col":3,"row":0,"span":1},{"key":"filter2_mode","col":0,"row":1,"span":2},{"key":"filter2_env_polarity","col":2,"row":1,"span":2},{"key":"filter2_cutoff_link","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Routing","cols":6,"x":560,"y":316,"w":248,"h":null,"controls":[{"key":"filter_routing","col":0,"row":0,"span":2},{"key":"filter_select","col":2,"row":0,"span":2},{"key":"filter_balance","col":3,"row":1,"span":1},{"key":"saturation_curve","col":0,"row":1,"span":2},{"key":"filter_keytrack_base","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Envelope","cols":5,"x":416,"y":488,"w":392,"h":72,"controls":[{"key":"flt_attack","col":1,"row":0,"span":1},{"key":"flt_decay","col":2,"row":0,"span":1},{"key":"flt_sustain","col":3,"row":0,"span":1},{"key":"flt_sustain_time","col":4,"row":0,"span":1},{"key":"flt_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Amp Envelope","cols":5,"x":8,"y":488,"w":384,"h":72,"controls":[{"key":"amp_attack","col":1,"row":0,"span":1},{"key":"amp_decay","col":2,"row":0,"span":1},{"key":"amp_sustain","col":3,"row":0,"span":1},{"key":"amp_sustain_time","col":4,"row":0,"span":1},{"key":"amp_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Velocity Mod","cols":10,"x":8,"y":596,"w":800,"h":null,"controls":[{"key":"osc1_shape_velocity","col":2,"row":0,"span":1},{"key":"osc2_shape_velocity","col":3,"row":0,"span":1},{"key":"pulsewidth_velocity","col":4,"row":0,"span":1},{"key":"fm_amount_velocity","col":5,"row":0,"span":1},{"key":"flt1_envamt_velocity","col":6,"row":0,"span":1},{"key":"flt2_envamt_velocity","col":7,"row":0,"span":1},{"key":"resonance1_velocity","col":8,"row":0,"span":1},{"key":"resonance2_velocity","col":9,"row":0,"span":1},{"key":"amp_velocity","col":10,"row":0,"span":1},{"key":"panorama_velocity","col":11,"row":0,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1","cols":4,"x":8,"y":700,"w":176,"h":280,"controls":[{"key":"lfo1_rate","col":0,"row":0,"span":1},{"key":"lfo1_clock","col":1,"row":0,"span":2},{"key":"lfo1_shape","col":1,"row":1,"span":2},{"key":"lfo1_mode","col":1,"row":2,"span":2},{"key":"lfo1_env_mode","col":0,"row":2,"span":1},{"key":"lfo1_symmetry","col":0,"row":1,"span":1},{"key":"lfo1_keyfollow","col":1,"row":3,"span":1},{"key":"lfo1_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1 \u2192 Mod","cols":3,"x":208,"y":700,"w":184,"h":280,"controls":[{"key":"osc1_lfo1_amount","col":0,"row":0,"span":1},{"key":"osc2_lfo1_amount","col":1,"row":0,"span":1},{"key":"pw_lfo1_amount","col":2,"row":0,"span":1},{"key":"reso_lfo1_amount","col":0,"row":1,"span":1},{"key":"filtgain_lfo1_amount","col":1,"row":1,"span":1},{"key":"lfo1_assign_dest","col":0,"row":2,"span":2},{"key":"lfo1_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2","cols":4,"x":416,"y":700,"w":184,"h":280,"controls":[{"key":"lfo2_rate","col":0,"row":0,"span":1},{"key":"lfo2_clock","col":1,"row":0,"span":2},{"key":"lfo2_shape","col":1,"row":1,"span":2},{"key":"lfo2_mode","col":1,"row":2,"span":2},{"key":"lfo2_env_mode","col":0,"row":2,"span":1},{"key":"lfo2_symmetry","col":0,"row":1,"span":1},{"key":"lfo2_keyfollow","col":1,"row":3,"span":1},{"key":"lfo2_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2 \u2192 Mod","cols":3,"x":624,"y":700,"w":184,"h":280,"controls":[{"key":"shape_lfo2_amount","col":0,"row":0,"span":1},{"key":"fm_lfo2_amount","col":1,"row":0,"span":1},{"key":"cutoff1_lfo2_amount","col":2,"row":0,"span":1},{"key":"cutoff2_lfo2_amount","col":0,"row":1,"span":1},{"key":"pan_lfo2_amount","col":1,"row":1,"span":1},{"key":"lfo2_assign_dest","col":0,"row":2,"span":2},{"key":"lfo2_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 3","cols":2,"x":8,"y":1016,"w":112,"h":280,"controls":[{"key":"lfo3_rate","col":0,"row":0,"span":1},{"key":"lfo3_clock","col":0,"row":1,"span":2},{"key":"lfo3_shape","col":0,"row":2,"span":2},{"key":"lfo3_mode","col":0,"row":3,"span":2},{"key":"lfo3_keyfollow","col":1,"row":6,"span":1},{"key":"lfo3_destination","col":0,"row":4,"span":2},{"key":"osc_lfo3_amount","col":0,"row":5,"span":1},{"key":"lfo3_fadein_time","col":0,"row":6,"span":1}],"dividers":[]},{"band":"lfo","title":"Assign","cols":9,"x":144,"y":1016,"w":664,"h":216,"controls":[{"key":"assign1_source","col":0,"row":0,"span":2},{"key":"assign1_destination","col":2,"row":0,"span":2},{"key":"assign1_amount","col":4,"row":0,"span":1},{"key":"assign2_source","col":0,"row":1,"span":2},{"key":"assign2_dest1","col":2,"row":1,"span":2},{"key":"assign2_amount1","col":4,"row":1,"span":1},{"key":"assign2_dest2","col":5,"row":1,"span":2},{"key":"assign2_amount2","col":7,"row":1,"span":1},{"key":"assign3_source","col":0,"row":2,"span":2},{"key":"assign3_dest1","col":2,"row":2,"span":2},{"key":"assign3_amount1","col":4,"row":2,"span":1},{"key":"assign3_dest2","col":5,"row":2,"span":2},{"key":"assign3_amount2","col":7,"row":2,"span":1},{"key":"assign3_dest3","col":8,"row":2,"span":2},{"key":"assign3_amount3","col":10,"row":2,"span":1}],"dividers":[]},{"band":"fx","title":"Chorus","cols":4,"x":640,"y":1268,"w":null,"h":224,"controls":[{"key":"chorus_mix","col":0,"row":0,"span":1},{"key":"chorus_rate","col":1,"row":0,"span":1},{"key":"chorus_depth","col":2,"row":0,"span":1},{"key":"chorus_delay","col":1,"row":1,"span":1},{"key":"chorus_feedback","col":0,"row":1,"span":1},{"key":"chorus_lfo_shape","col":0,"row":2,"span":2}],"dividers":[]},{"band":"fx","title":"Delay / Reverb","cols":6,"x":392,"y":1268,"w":null,"h":224,"controls":[{"key":"delay_reverb_mode","col":0,"row":0,"span":2},{"key":"effect_send","col":2,"row":0,"span":1},{"key":"delay_time","col":0,"row":1,"span":1},{"key":"delay_feedback","col":3,"row":1,"span":1},{"key":"delay_rate_rev_decay","col":1,"row":1,"span":1},{"key":"delay_depth","col":2,"row":1,"span":1},{"key":"delay_lfo_shape","col":0,"row":2,"span":2},{"key":"delay_color","col":3,"row":0,"span":1},{"key":"delay_clock","col":2,"row":2,"span":2}],"dividers":[]},{"band":"arp","title":"Arpeggiator","cols":4,"x":144,"y":1268,"w":null,"h":224,"controls":[{"key":"arp_mode","col":0,"row":0,"span":2},{"key":"arp_pattern","col":2,"row":0,"span":1},{"key":"arp_octave_range","col":0,"row":1,"span":2},{"key":"arp_hold","col":3,"row":1,"span":1},{"key":"arp_note_length","col":3,"row":0,"span":1},{"key":"arp_swing","col":3,"row":2,"span":1},{"key":"arp_clock","col":0,"row":2,"span":2},{"key":"clock_tempo","col":2,"row":2,"span":1}],"dividers":[]},{"band":"arp","title":"Patch / Output","cols":5,"x":8,"y":1528,"w":804,"h":128,"controls":[{"key":"patch_volume","col":1,"row":0,"span":1},{"key":"panorama","col":3,"row":0,"span":1},{"key":"transpose","col":8,"row":0,"span":1},{"key":"key_mode","col":5,"row":0,"span":2},{"key":"portamento_time","col":10,"row":0,"span":1},{"key":"bender_range_up","col":12,"row":0,"span":1},{"key":"bender_range_down","col":12,"row":1,"span":1}],"dividers":[]}]};
+</script>
+<script>
+(function(){
+  "use strict";
+  var PREFIX = "synth:";
+  var _pm=(location.search.match(/[?&]model=([abcABC])/)||[])[1];
+  var remote = window.schwungRemote || {
+    _v:_pm?{"synth:rom_model":_pm.toUpperCase()}:{},
+    getParam:function(k){ return Promise.resolve(this._v[k]); },
+    setParam:function(k,v){ this._v[k]=String(v); },
+    onParamChange:function(){}, getHierarchy:function(){return Promise.resolve(null);}, getChainParams:function(){return Promise.resolve(null);}
+  };
+
+  var DESIGN_W=(LAYOUT.canvasWidth)||1130;
+  // Compaction (orig cell 56x68). Tighter cells + block positions pulled toward
+  // the origin so gaps close while the relative arrangement is preserved. The
+  // canvas is width-normalised, so BY (vertical pull) is the real density win.
+  var CW=50, RH=58, BX=0.90, BY=0.85;
+  // Jump-menu sections (finer than the arranger's coarse bands). Order = scroll order.
+  var BANDS=[{id:"osc",label:"OSC"},{id:"filt",label:"FILT"},{id:"env",label:"ENV"},
+             {id:"lfo",label:"LFO"},{id:"asng",label:"ASNG"},{id:"arpfx",label:"ARP/FX"}];
+  var SECTION={
+    "Osc 1":"osc","Osc 2":"osc","Common":"osc","Unison":"osc","Mixer":"osc",
+    "Filter 1":"filt","Filter 2":"filt","Filter Routing":"filt",
+    "Amp Envelope":"env","Filter Envelope":"env","Velocity Mod":"env",
+    "Assign":"asng",
+    "Arpeggiator":"arpfx","Chorus":"arpfx","Delay / Reverb":"arpfx","Patch / Output":"arpfx"
+  };
+  function sectionFor(t){ return /^LFO/.test(t) ? "lfo" : (SECTION[t]||"osc"); }
+
+  var state={ values:{}, level:0, built:false, canvas:null, wrap:null, designH:0, bandFirst:{} };
+  var controls={};   // key -> [setter,...]
+
+  function num(x){ var n=parseFloat(x); return isNaN(n)?0:n; }
+  function el(t,c,x){ var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e; }
+  function setParam(key,v){ state.values[key]=String(v); remote.setParam(PREFIX+key,String(v));
+    var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }   // fire listeners (e.g. Shape→dim reactivity) on local edits
+  function onValue(key,fn){ (controls[key]||(controls[key]=[])).push(fn); }
+  function pushValue(key,v){ state.values[key]=String(v); var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }
+  function isOffOn(o){ return o.length===2 && /off/i.test(o[0]) && /on/i.test(o[1]); }
+
+  // label de-dup (matches the arranger) + per-key overrides
+  function stripFor(title){ var m;
+    if(m=title.match(/^Osc (\d)/)) return m[1]==="2"?["Osc2","Osc"]:["Osc"+m[1]];
+    if(m=title.match(/^LFO (\d)/)) return ["LFO"+m[1]];
+    if(m=title.match(/^Filter (\d)/)) return ["Filt"+m[1],"Flt"+m[1]];
+    if(title==="Unison") return ["Unison"];
+    if(title==="Filter Routing") return ["Filter","Filt","Flt"];
+    if(title==="Filter Envelope") return ["Flt"];
+    if(title==="Amp Envelope") return ["Amp"];
+    if(title==="Velocity Mod") return ["Velocity","Vel"];
+    if(title==="Chorus"||title==="Phaser") return [title];
+    if(title.indexOf("Delay")===0) return ["Delay"];
+    if(title==="EQ") return ["EQ"];
+    if(title==="Distortion") return ["Dist"];
+    if(title==="Arpeggiator") return ["Arp"];
+    return [];
+  }
+  function shortName(name,strip){ if(!strip||!strip.length) return name; var s=name;
+    strip.forEach(function(t){ s=s.replace(new RegExp("\\b"+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","ig")," "); });
+    s=s.replace(/\s+/g," ").trim(); return s||name; }
+  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM", portamento_time:"Porta",
+    delay_rate_rev_decay:"Rate/Dcy", osc_init_phase:"Phase", ringmod_volume:"Ring Vol",
+    osc_balance:"Osc1/2", filter_keytrack_base:"KeyFlw", cutoff2_offset:"Cut2 Ofs",
+    bender_range_up:"Bend ↑", bender_range_down:"Bend ↓",
+    effect_send:"FX Send", noise_color:"Color", clock_tempo:"Tempo",
+    sub_osc_volume:"Sub Vol", osc_mainvolume:"Osc Vol",
+    assign2_amount1:"A2 Amt1", assign2_amount2:"A2 Amt2",
+    assign3_amount1:"A3 Amt1", assign3_amount2:"A3 Amt2", assign3_amount3:"A3 Amt3" };
+
+  // ---- live widgets (native ints) ----
+  var NS="http://www.w3.org/2000/svg";
+  function polar(cx,cy,r,deg){ var a=deg*Math.PI/180; return [cx+r*Math.sin(a), cy-r*Math.cos(a)]; }
+  function arc(r,fromDeg,toDeg){ var a=polar(20,20,r,fromDeg), b=polar(20,20,r,toDeg), large=(toDeg-fromDeg)>180?1:0;
+    return "M"+a[0].toFixed(2)+","+a[1].toFixed(2)+" A"+r+","+r+" 0 "+large+" 1 "+b[0].toFixed(2)+","+b[1].toFixed(2); }
+  function lbl(nm,full){ var l=el("label",null,nm); l.title=full||nm; return l; }
+  function makeKnob(key,m,nm){
+    var min=num(m.min), max=num(m.max); if(max<=min) max=min+1;
+    var bip=!!BIPOLAR[key], center=64, signed=bip||min<0;
+    var degC=bip ? (-135+(center-min)/(max-min)*270) : -135;  // fill origin: center for bipolar, min otherwise
+    var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
+    var svg=document.createElementNS(NS,"svg"); svg.setAttribute("viewBox","0 0 40 40"); svg.setAttribute("class","knobsvg");
+    var body=document.createElementNS(NS,"circle"); body.setAttribute("cx",20); body.setAttribute("cy",20); body.setAttribute("r",14); body.setAttribute("class","kbody"); svg.appendChild(body);
+    var trk=document.createElementNS(NS,"path"); trk.setAttribute("class","karc"); trk.setAttribute("d",arc(13,-135,135)); svg.appendChild(trk);
+    var fill=document.createElementNS(NS,"path"); fill.setAttribute("class","kfill"); svg.appendChild(fill);
+    var ptr=document.createElementNS(NS,"line"); ptr.setAttribute("class","kptr"); ptr.setAttribute("x1",20); ptr.setAttribute("y1",20); svg.appendChild(ptr);
+    wrap.appendChild(svg); var val=el("span","val"); wrap.appendChild(val);
+    function draw(v){ v=Math.max(min,Math.min(max,v)); var frac=(v-min)/(max-min), deg=-135+frac*270, pe=polar(20,20,13,deg);
+      ptr.setAttribute("x2",pe[0].toFixed(2)); ptr.setAttribute("y2",pe[1].toFixed(2));
+      fill.setAttribute("d", bip ? arc(13,Math.min(deg,degC),Math.max(deg,degC)) : arc(13,-135,deg));
+      var disp=bip ? Math.round(v)-center : Math.round(v);
+      val.textContent=(signed&&disp>0?"+":"")+disp; }
+    function cur(){ return num(state.values[key]!==undefined?state.values[key]:min); }
+    onValue(key,function(v){ draw(num(v)); });
+    var dragging=false,sy=0,sv=0;
+    function down(e){ dragging=true; sy=(e.touches?e.touches[0].clientY:e.clientY); sv=cur();
+      window.addEventListener("mousemove",move); window.addEventListener("touchmove",move,{passive:false});
+      window.addEventListener("mouseup",up); window.addEventListener("touchend",up); e.preventDefault(); }
+    function move(e){ if(!dragging)return; var y=(e.touches?e.touches[0].clientY:e.clientY);
+      var nv=Math.round(sv+(sy-y)*(max-min)/(e.shiftKey?900:150)); nv=Math.max(min,Math.min(max,nv)); setParam(key,nv); draw(nv); e.preventDefault(); }
+    function up(){ dragging=false; window.removeEventListener("mousemove",move); window.removeEventListener("touchmove",move); window.removeEventListener("mouseup",up); window.removeEventListener("touchend",up); }
+    svg.addEventListener("mousedown",down); svg.addEventListener("touchstart",down,{passive:false});
+    svg.addEventListener("wheel",function(e){ var nv=Math.max(min,Math.min(max,cur()+(e.deltaY<0?1:-1))); setParam(key,nv); draw(nv); e.preventDefault(); },{passive:false});
+    draw(cur()); return wrap;
+  }
+  function makeSelect(key,m,opts,nm){
+    var wrap=el("div","ctl sel"); wrap.appendChild(lbl(nm,m.name));
+    var sel=el("select"); opts.forEach(function(o,i){ var op=el("option",null,o); op.value=i; sel.appendChild(op); });
+    sel.onchange=function(){ setParam(key,sel.value); };
+    onValue(key,function(v){ sel.value=String(num(v)); });
+    sel.value=String(num(state.values[key]||0)); wrap.appendChild(sel); return wrap;
+  }
+  function makeToggle(key,m,opts,nm){
+    var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
+    var sw=el("div","sw"); sw.appendChild(el("div","dot")); var val=el("span","val");
+    function draw(v){ var on=num(v)>=1; sw.classList.toggle("on",on); val.textContent=on?opts[1]:opts[0]; }
+    sw.onclick=function(){ var on=!sw.classList.contains("on"); setParam(key,on?1:0); draw(on?1:0); };
+    onValue(key,function(v){ draw(v); });
+    wrap.appendChild(sw); wrap.appendChild(val); draw(state.values[key]||0); return wrap;
+  }
+  function makeControl(key,strip){
+    var m=PARAMS[key]; if(!m){ console.warn("unknown param",key); return null; }
+    if(m.model>state.level) return null;
+    var nm=LABELS[key]||shortName(m.name,strip);
+    var node = m.opts ? (isOffOn(OPTS[m.opts]||[]) ? makeToggle(key,m,OPTS[m.opts]||[],nm) : makeSelect(key,m,OPTS[m.opts]||[],nm))
+                      : makeKnob(key,m,nm);
+    if(node) node.setAttribute("data-pk",key);
+    return node;
+  }
+  function makeDividerEl(d){ var e=el("div","divider "+(d.orient==="h"?"dh":"dv"));
+    if(d.orient==="v") e.style.cssText="position:absolute;left:"+(d.pos*CW-1.5)+"px;top:"+(d.start*RH)+"px;height:"+((d.end-d.start)*RH)+"px;width:3px";
+    else e.style.cssText="position:absolute;top:"+(d.pos*RH-1.5)+"px;left:"+(d.start*CW)+"px;width:"+((d.end-d.start)*CW)+"px;height:3px";
+    return e; }
+
+  // ---- subtle per-section color coding (cued from the Virus panel) ----
+  // Neighboring groups never share a hue. LFO blocks (incl. "LFO n → Mod")
+  // matched by prefix so the arrow glyph isn't a matching hazard.
+  // Per-section HEADER shade — black/gray only (panels themselves are all red).
+  // Four levels assigned so no two adjacent sections share a shade.
+  var K1="20,20,22", K2="46,46,50", K3="74,74,80", K4="104,104,110";
+  var BLOCK_ACCENT = {
+    "Osc 1":K1,"Osc 2":K1,"Mixer":K1,"Unison":K1,
+    "Common":K1,"Patch / Output":K1,                         // oscillators / mixer / output
+    "Filter 1":K2,"Filter 2":K2,"Filter Routing":K2,
+    "Amp Envelope":K3,"Filter Envelope":K3,
+    "Velocity Mod":K4,
+    "Assign":K2,
+    "Arpeggiator":K3,
+    "Chorus":K4,"Delay / Reverb":K4
+  };
+  function accentFor(title){ return /^LFO/.test(title) ? K1 : (BLOCK_ACCENT[title]||null); }
+
+  // ---- build the scaled canvas of absolute blocks ----
+  function build(){
+    if(state.built) return; state.built=true;
+    var main=document.getElementById("main"), tabs=document.getElementById("tabs");
+    var wrap=el("div","pagewrap"); var canvas=el("div","canvas"); canvas.style.width=DESIGN_W+"px";
+    state.canvas=canvas; state.wrap=wrap; state.bandFirst={}; var stretch=[];
+    LAYOUT.blocks.forEach(function(block){
+      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0, minC=Infinity;
+      (block.controls||[]).forEach(function(c){
+        var node=makeControl(c.key,strip); if(!node) return; any=true;
+        node.style.left=(c.col*CW)+"px"; node.style.top=(c.row*RH)+"px"; node.style.width=(c.span*CW-4)+"px";
+        nodes.push(node); if(c.row+1>maxR)maxR=c.row+1; if(c.col+c.span>maxC)maxC=c.col+c.span; if(c.col<minC)minC=c.col;
+      });
+      if(!any) return;                                  // fully model-gated → skip block
+      var card=el("div","block"); card.style.left=(block.x*BX)+"px"; card.style.top=(block.y*BY)+"px";
+      var ac=accentFor(block.title); if(ac) card.style.setProperty("--accent",ac);
+      var head=el("div","bhead"); head.appendChild(el("span","led")); head.appendChild(el("span","t",block.title)); card.appendChild(head);
+      var bodyEl=el("div","controls");
+      var bw=Math.max(maxC*CW, (block.w||0)*CW/56);
+      var mnC=(minC===Infinity?0:minC), contentW=(maxC-mnC)*CW;
+      var offX=(bw-contentW)/2 - mnC*CW;   // centre the param cluster as a unit, accounting for its start column
+      bodyEl.style.width=bw+"px"; bodyEl.style.height=(maxR*RH)+"px";   // hug content height so trailing space is uniform
+      nodes.forEach(function(n){ n.style.left=(parseFloat(n.style.left)+offX)+"px"; bodyEl.appendChild(n); });
+      (block.dividers||[]).forEach(function(d){ var dv=makeDividerEl(d); dv.style.left=(parseFloat(dv.style.left||0)+offX)+"px"; bodyEl.appendChild(dv); });
+      card.appendChild(bodyEl); canvas.appendChild(card);
+      stretch.push({card:card, body:bodyEl});
+      var sec=sectionFor(block.title), bf=state.bandFirst[sec];
+      if(!bf || block.y<bf.y) state.bandFirst[sec]={y:block.y, card:card};
+    });
+    wrap.appendChild(canvas); main.appendChild(wrap);
+    // Fill trapped vertical gaps: extend each block's panel down to a uniform
+    // gutter above the nearest block below it; bottom-of-column blocks hug content.
+    var GUT=8;
+    stretch.forEach(function(A){
+      var al=A.card.offsetLeft, ar=al+A.card.offsetWidth, ab=A.card.offsetTop+A.card.offsetHeight, below=Infinity;
+      stretch.forEach(function(B){ if(B===A) return;
+        var bl=B.card.offsetLeft, br=bl+B.card.offsetWidth, bt=B.card.offsetTop;
+        if(bl<ar-2 && al<br-2 && bt>=ab-2 && bt<below) below=bt; });
+      if(below!==Infinity){ var add=(below-GUT)-ab; if(add>0) A.body.style.height=(A.body.offsetHeight+add)+"px"; }
+    });
+    BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
+      var t=el("div","tab",b.label); t.id="tab"+i;
+      t.onclick=function(){ var f=state.bandFirst[b.id]; if(!f) return;
+        // scroll only the iframe's own window (scrollIntoView would also scroll the parent page)
+        var tb=document.querySelector(".topbar"), off=(tb?tb.offsetHeight:60)+4;
+        var y=f.card.getBoundingClientRect().top + window.scrollY - off;
+        window.scrollTo({top:Math.max(0,y), behavior:"smooth"}); };
+      tabs.appendChild(t); });
+    // native canvas extent = lowest/rightmost block edges (blocks can sit past the
+    // nominal design width, so scale to whatever actually fits)
+    var maxB=0, maxR=0, ch=canvas.children;
+    for(var i=0;i<ch.length;i++){ var c=ch[i]; var bb=c.offsetTop+c.offsetHeight; if(bb>maxB)maxB=bb; var rr=c.offsetLeft+c.offsetWidth; if(rr>maxR)maxR=rr; }
+    state.designW=maxR+8; canvas.style.width=state.designW+"px";   // fit actual content width (zoom to fill)
+    canvas.style.height=(maxB+12)+"px"; state.designH=maxB+12;
+    setupOscShapeDim();
+    relayout(); setupScrollSpy();
+  }
+  // The Virus osc Shape knob crossfades [Wave Select] → Saw → [Pulse Width]:
+  // Wave Select is silent when Shape >= 64, Pulse Width is silent when Shape < 64.
+  // Dim whichever is currently sidelined so it's visually clear what's active.
+  function setupOscShapeDim(){
+    [1,2].forEach(function(n){
+      var shapeKey="osc"+n+"_shape";
+      var waveEl=state.canvas.querySelector('[data-pk="osc'+n+'_wave_select"]');
+      var pwEl=state.canvas.querySelector('[data-pk="osc'+n+'_pulsewidth"]');
+      if(!waveEl && !pwEl) return;
+      function apply(sv){ var pulse=sv>=64;
+        if(waveEl) waveEl.classList.toggle("pkdim", pulse);
+        if(pwEl)   pwEl.classList.toggle("pkdim", !pulse); }
+      onValue(shapeKey,function(v){ apply(num(v)); });
+      apply(num(state.values[shapeKey]||0));
+    });
+  }
+  function relayout(){
+    if(!state.canvas) return;
+    var avail=document.getElementById("main").clientWidth-2;
+    var z=parseFloat((document.getElementById("zoom")||{}).value)||1;   // header zoom slider
+    var S=avail/(state.designW||DESIGN_W)*z;
+    state.canvas.style.transform="scale("+S+")";
+    state.wrap.style.width=(state.designW*S)+"px";   // so >100% zoom scrolls horizontally
+    state.wrap.style.height=(state.designH*S)+"px";
+  }
+  var rT; window.addEventListener("resize",function(){ clearTimeout(rT); rT=setTimeout(relayout,120); });
+  document.getElementById("zoom").oninput=relayout;
+  // Deterministic scroll-spy: highlight the last section whose first card has
+  // passed under the sticky topbar. Works from first paint (OSC selected at top)
+  // and tracks every scroll — no IntersectionObserver transition needed.
+  function setupScrollSpy(){
+    var tops=[];
+    BANDS.forEach(function(b,j){ var f=state.bandFirst[b.id]; if(f) tops.push({id:b.id, j:j, card:f.card}); });
+    if(!tops.length) return;
+    function update(){
+      var tb=document.querySelector(".topbar");
+      var line=(tb?tb.getBoundingClientRect().bottom:60)+6;
+      var cur=tops[0];
+      for(var k=0;k<tops.length;k++){ if(tops[k].card.getBoundingClientRect().top - line <= 1) cur=tops[k]; }
+      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel", b.id===cur.id); });
+    }
+    if(state._spy){ window.removeEventListener("scroll",state._spy); window.removeEventListener("resize",state._spy); }
+    state._spy=update;
+    window.addEventListener("scroll",update,{passive:true});
+    window.addEventListener("resize",update);
+    update();   // initial highlight (OSC at top)
+  }
+
+  // ---- preset / bank / octave ----
+  function refreshBrowser(){
+    document.getElementById("pName").textContent=state.values["preset_name"]||"—";
+    var idx=num(state.values["patch_in_bank"]), cnt=num(state.values["preset_count"]);
+    document.getElementById("pIdx").textContent=cnt?idx+"/"+cnt:"";
+    document.getElementById("bName").textContent=state.values["bank_name"]||"—";
+    var o=num(state.values["octave_transpose"]); document.getElementById("oVal").textContent=(o>0?"+":"")+o;
+  }
+  // Preset/bank loads are applied ASYNC by the Virus's forked DSP child; the
+  // module's get_param("state") blocks until the child confirms the sync, so the
+  // manager's re-push already returns the new patch's values — no UI retry needed.
+  function stepPreset(d){ var i=num(state.values["preset"]), c=num(state.values["preset_count"])||1; i=(i+d+c)%c; setParam("preset",i); state.lastPreset=String(i); refreshBrowser(); }
+  function stepBank(d){ var i=num(state.values["bank_index"]), c=num(state.values["bank_count"])||1; i=(i+d+c)%c; setParam("bank_index",i); }
+  function stepOctave(d){ var o=Math.max(-4,Math.min(4,num(state.values["octave_transpose"])+d)); setParam("octave_transpose",o); refreshBrowser(); }
+
+  function applyParamUpdate(params){ if(!params) return; var b=false;
+    Object.keys(params).forEach(function(fk){ var key=fk.indexOf(PREFIX)===0?fk.slice(PREFIX.length):fk; pushValue(key,params[fk]);
+      if(/^(preset|preset_name|preset_count|patch_in_bank|bank_index|bank_name|octave_transpose|rom_model)$/.test(key)) b=true;
+      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; } }
+      if(key==="rom_model") maybeRebuildForModel(params[fk]); });
+    if(b) refreshBrowser();
+  }
+  function maybeRebuildForModel(name){ var lvl=/^c/i.test(name)?2:/^b/i.test(name)?1:0;
+    document.getElementById("modelBadge").textContent=name&&name!=="?"?String(name).toUpperCase():"—";
+    if(lvl!==state.level && state.built){ state.level=lvl; rebuild(); } else state.level=lvl; }
+  function rebuild(){ controls={}; state.built=false; document.getElementById("main").innerHTML=""; document.getElementById("tabs").innerHTML=""; build(); seedValues(); }
+  function setStatus(t,c){ document.getElementById("statusText").textContent=t; document.getElementById("dot").className=c||""; }
+  function resync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} if(state.built) seedValues(); }
+
+  function seedValues(){
+    ["rom_model","preset","preset_name","preset_count","patch_in_bank","bank_index","bank_name","bank_count","octave_transpose"].forEach(function(k){
+      remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!==""){ if(k==="rom_model")maybeRebuildForModel(v); else state.values[k]=String(v); refreshBrowser(); } }); });
+    var keys=Object.keys(controls), i=0;
+    (function next(){ var n=0; while(i<keys.length&&n<24){ (function(k){ remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!=="") pushValue(k,v); }); })(keys[i++]); n++; } if(i<keys.length) setTimeout(next,18); })();
+  }
+
+  document.getElementById("pPrev").onclick=function(){ stepPreset(-1); };
+  document.getElementById("pNext").onclick=function(){ stepPreset(1); };
+  document.getElementById("bPrev").onclick=function(){ stepBank(-1); };
+  document.getElementById("bNext").onclick=function(){ stepBank(1); };
+  document.getElementById("oDown").onclick=function(){ stepOctave(-1); };
+  document.getElementById("oUp").onclick=function(){ stepOctave(1); };
+  document.getElementById("syncBtn").onclick=function(){ resync(); setStatus("synced","ok"); };
+
+  setStatus("connecting…","");
+  remote.onParamChange(applyParamUpdate);
+  // Render the panel immediately from the embedded layout (default model A) so the
+  // UI never waits on a manager round-trip; values + actual model stream in after.
+  build();
+  seedValues();
+  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); setStatus("connected","ok"); });
+})();
+</script>
+</body>
+</html>
