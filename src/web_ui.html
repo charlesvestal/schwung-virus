@@ -66,10 +66,12 @@
   .block{position:absolute;background:linear-gradient(180deg,var(--recess),var(--recess2));
     border:1px solid var(--edge);border-radius:var(--r);padding:0 8px 0;
     box-shadow:inset 0 1px 0 var(--hair),0 2px 6px rgba(0,0,0,.5)}
+  /* --accent is set per block (rgb triplet) for subtle section color-coding. */
   .bhead{display:flex;align-items:center;gap:6px;margin:0 -8px 4px;padding:5px 8px;
-    background:linear-gradient(180deg,#222530,#191c24);border-bottom:1px solid #000;border-radius:var(--r) var(--r) 0 0}
+    background:linear-gradient(180deg,rgba(var(--accent,136,140,156),.22),rgba(var(--accent,136,140,156),.05)),linear-gradient(180deg,#222530,#191c24);
+    border-bottom:1px solid rgba(var(--accent,0,0,0),.5);border-radius:var(--r) var(--r) 0 0}
   .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .bhead .led{width:5px;height:5px;border-radius:50%;background:var(--red);box-shadow:0 0 5px rgba(216,54,43,.7);flex:none}
+  .bhead .led{width:5px;height:5px;border-radius:50%;background:rgb(var(--accent,216,54,43));box-shadow:0 0 5px rgba(var(--accent,216,54,43),.7);flex:none}
 
   .controls{position:relative}
   .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
@@ -253,6 +255,21 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     else e.style.cssText="position:absolute;top:"+(d.pos*RH-1.5)+"px;left:"+(d.start*CW)+"px;width:"+((d.end-d.start)*CW)+"px;height:3px";
     return e; }
 
+  // ---- subtle per-section color coding (cued from the Virus panel) ----
+  // Neighboring groups never share a hue. LFO blocks (incl. "LFO n → Mod")
+  // matched by prefix so the arrow glyph isn't a matching hazard.
+  var BLOCK_ACCENT = {
+    "Osc 1":"210,150,70","Osc 2":"210,150,70","Mixer":"210,150,70","Unison":"210,150,70",
+    "Common":"210,150,70","Patch / Output":"210,150,70",            // oscillators / mixer / output
+    "Filter 1":"75,150,225","Filter 2":"75,150,225","Filter Routing":"75,150,225",
+    "Amp Envelope":"95,185,115","Filter Envelope":"95,185,115",
+    "Velocity Mod":"170,120,225",
+    "Assign":"220,185,75",
+    "Arpeggiator":"205,95,175",
+    "Chorus":"120,125,230","Delay / Reverb":"120,125,230"
+  };
+  function accentFor(title){ return /^LFO/.test(title) ? "70,195,205" : (BLOCK_ACCENT[title]||null); }
+
   // ---- build the scaled canvas of absolute blocks ----
   function build(){
     if(state.built) return; state.built=true;
@@ -268,6 +285,7 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
       });
       if(!any) return;                                  // fully model-gated → skip block
       var card=el("div","block"); card.style.left=block.x+"px"; card.style.top=block.y+"px";
+      var ac=accentFor(block.title); if(ac) card.style.setProperty("--accent",ac);
       var head=el("div","bhead"); head.appendChild(el("span","led")); head.appendChild(el("span","t",block.title)); card.appendChild(head);
       var bodyEl=el("div","controls");
       bodyEl.style.width=Math.max(maxC*CW, block.w||0)+"px"; bodyEl.style.height=Math.max(maxR*RH, block.h||0)+"px";
