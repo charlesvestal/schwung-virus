@@ -74,14 +74,14 @@
      per-section header shade — black/gray. Controls render white/gray on top. */
   /* subtle vertical gradient (lightest at centre) + very fine horizontal stripes */
   .block{position:absolute;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 50%,rgba(0,0,0,.16)),rgb(196,52,40);
-    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 8px 0;
+    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 6px 4px;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 7px rgba(0,0,0,.6)}
   /* powder-coat grain: grayscale fractal noise blended over the panel */
   .block::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;z-index:0;
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size:140px 140px;mix-blend-mode:overlay;opacity:.55}
   .block > *{position:relative;z-index:1}
-  .bhead{display:flex;align-items:center;gap:6px;margin:0 -8px 4px;padding:5px 8px;
+  .bhead{display:flex;align-items:center;gap:5px;margin:0 -6px 2px;padding:3px 6px;
     background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.28)),rgb(var(--accent,34,34,36));
     border-bottom:1px solid rgba(0,0,0,.5);box-shadow:inset 0 -1px 0 rgba(255,255,255,.05);border-radius:var(--r) var(--r) 0 0}
   .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
@@ -90,16 +90,16 @@
   .controls{position:relative}
   .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
   .ctl.pkdim{opacity:.3}   /* osc wave-select / pulse-width sidelined by current Shape zone */
-  .ctl > label{font-size:7.7px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.1;height:18px;
+  .ctl > label{font-size:7.1px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.05;height:15px;
     overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%;text-shadow:0 1px 1px rgba(0,0,0,.5)}
-  .ctl .val{font-size:9px;color:rgba(255,255,255,.85);min-height:10px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
-  .knobsvg{width:40px;height:40px;display:block;margin:-3px 0 -6px;cursor:ns-resize;touch-action:none}
+  .ctl .val{font-size:8.2px;color:rgba(255,255,255,.85);min-height:9px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
+  .knobsvg{width:40px;height:40px;display:block;margin:-4px 0 -8px;cursor:ns-resize;touch-action:none}
   .kbody{fill:url(#kgrad);stroke:#000;stroke-width:1}
   .karc{fill:none;stroke:rgba(0,0,0,.5);stroke-width:3;stroke-linecap:round}
   .kfill{fill:none;stroke:rgba(245,242,236,.42);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
   .kptr{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
-  .ctl.sel select{width:104px;height:24px;background:linear-gradient(180deg,#1d1e21,#101113);border:1px solid #000;border-radius:4px;
-    color:#ff5142;font-size:7.8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:0 4px;cursor:pointer;text-align:center;text-align-last:center}
+  .ctl.sel select{width:100%;height:22px;background:linear-gradient(180deg,#1d1e21,#101113);border:1px solid #000;border-radius:4px;
+    color:#ff5142;font-size:7.8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:0 3px;cursor:pointer;text-align:center;text-align-last:center}
   .ctl.sel select option{color:#ff5142;background:#141519;text-transform:uppercase}
   .ctl.sel select:hover{border-color:rgba(255,255,255,.4)}
   .sw{width:42px;height:22px;border-radius:11px;background:rgba(0,0,0,.45);border:1px solid #000;position:relative;cursor:pointer;transition:background .12s}
@@ -172,7 +172,10 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   };
 
   var DESIGN_W=(LAYOUT.canvasWidth)||1130;
-  var CW=(LAYOUT.cell&&LAYOUT.cell.w)||56, RH=(LAYOUT.cell&&LAYOUT.cell.h)||68;
+  // Compaction (orig cell 56x68). Tighter cells + block positions pulled toward
+  // the origin so gaps close while the relative arrangement is preserved. The
+  // canvas is width-normalised, so BY (vertical pull) is the real density win.
+  var CW=50, RH=58, BX=0.90, BY=0.85;
   // Jump-menu sections (finer than the arranger's coarse bands). Order = scroll order.
   var BANDS=[{id:"osc",label:"OSC"},{id:"filt",label:"FILT"},{id:"env",label:"ENV"},
              {id:"lfo",label:"LFO"},{id:"asng",label:"ASNG"},{id:"arpfx",label:"ARP/FX"}];
@@ -216,7 +219,14 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   function shortName(name,strip){ if(!strip||!strip.length) return name; var s=name;
     strip.forEach(function(t){ s=s.replace(new RegExp("\\b"+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","ig")," "); });
     s=s.replace(/\s+/g," ").trim(); return s||name; }
-  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM", portamento_time:"Porta" };
+  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM", portamento_time:"Porta",
+    delay_rate_rev_decay:"Rate/Dcy", osc_init_phase:"Phase", ringmod_volume:"Ring Vol",
+    osc_balance:"Osc1/2", filter_keytrack_base:"KeyFlw", cutoff2_offset:"Cut2 Ofs",
+    bender_range_up:"Bend ↑", bender_range_down:"Bend ↓",
+    effect_send:"FX Send", noise_color:"Color", clock_tempo:"Tempo",
+    sub_osc_volume:"Sub Vol", osc_mainvolume:"Osc Vol",
+    assign2_amount1:"A2 Amt1", assign2_amount2:"A2 Amt2",
+    assign3_amount1:"A3 Amt1", assign3_amount2:"A3 Amt2", assign3_amount3:"A3 Amt3" };
 
   // ---- live widgets (native ints) ----
   var NS="http://www.w3.org/2000/svg";
@@ -305,27 +315,41 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     if(state.built) return; state.built=true;
     var main=document.getElementById("main"), tabs=document.getElementById("tabs");
     var wrap=el("div","pagewrap"); var canvas=el("div","canvas"); canvas.style.width=DESIGN_W+"px";
-    state.canvas=canvas; state.wrap=wrap; state.bandFirst={};
+    state.canvas=canvas; state.wrap=wrap; state.bandFirst={}; var stretch=[];
     LAYOUT.blocks.forEach(function(block){
-      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0;
+      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0, minC=Infinity;
       (block.controls||[]).forEach(function(c){
         var node=makeControl(c.key,strip); if(!node) return; any=true;
         node.style.left=(c.col*CW)+"px"; node.style.top=(c.row*RH)+"px"; node.style.width=(c.span*CW-4)+"px";
-        nodes.push(node); if(c.row+1>maxR)maxR=c.row+1; if(c.col+c.span>maxC)maxC=c.col+c.span;
+        nodes.push(node); if(c.row+1>maxR)maxR=c.row+1; if(c.col+c.span>maxC)maxC=c.col+c.span; if(c.col<minC)minC=c.col;
       });
       if(!any) return;                                  // fully model-gated → skip block
-      var card=el("div","block"); card.style.left=block.x+"px"; card.style.top=block.y+"px";
+      var card=el("div","block"); card.style.left=(block.x*BX)+"px"; card.style.top=(block.y*BY)+"px";
       var ac=accentFor(block.title); if(ac) card.style.setProperty("--accent",ac);
       var head=el("div","bhead"); head.appendChild(el("span","led")); head.appendChild(el("span","t",block.title)); card.appendChild(head);
       var bodyEl=el("div","controls");
-      bodyEl.style.width=Math.max(maxC*CW, block.w||0)+"px"; bodyEl.style.height=Math.max(maxR*RH, block.h||0)+"px";
-      nodes.forEach(function(n){ bodyEl.appendChild(n); });
-      (block.dividers||[]).forEach(function(d){ bodyEl.appendChild(makeDividerEl(d)); });
+      var bw=Math.max(maxC*CW, (block.w||0)*CW/56);
+      var mnC=(minC===Infinity?0:minC), contentW=(maxC-mnC)*CW;
+      var offX=(bw-contentW)/2 - mnC*CW;   // centre the param cluster as a unit, accounting for its start column
+      bodyEl.style.width=bw+"px"; bodyEl.style.height=(maxR*RH)+"px";   // hug content height so trailing space is uniform
+      nodes.forEach(function(n){ n.style.left=(parseFloat(n.style.left)+offX)+"px"; bodyEl.appendChild(n); });
+      (block.dividers||[]).forEach(function(d){ var dv=makeDividerEl(d); dv.style.left=(parseFloat(dv.style.left||0)+offX)+"px"; bodyEl.appendChild(dv); });
       card.appendChild(bodyEl); canvas.appendChild(card);
+      stretch.push({card:card, body:bodyEl});
       var sec=sectionFor(block.title), bf=state.bandFirst[sec];
       if(!bf || block.y<bf.y) state.bandFirst[sec]={y:block.y, card:card};
     });
     wrap.appendChild(canvas); main.appendChild(wrap);
+    // Fill trapped vertical gaps: extend each block's panel down to a uniform
+    // gutter above the nearest block below it; bottom-of-column blocks hug content.
+    var GUT=8;
+    stretch.forEach(function(A){
+      var al=A.card.offsetLeft, ar=al+A.card.offsetWidth, ab=A.card.offsetTop+A.card.offsetHeight, below=Infinity;
+      stretch.forEach(function(B){ if(B===A) return;
+        var bl=B.card.offsetLeft, br=bl+B.card.offsetWidth, bt=B.card.offsetTop;
+        if(bl<ar-2 && al<br-2 && bt>=ab-2 && bt<below) below=bt; });
+      if(below!==Infinity){ var add=(below-GUT)-ab; if(add>0) A.body.style.height=(A.body.offsetHeight+add)+"px"; }
+    });
     BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
       var t=el("div","tab",b.label); t.id="tab"+i;
       t.onclick=function(){ var f=state.bandFirst[b.id]; if(!f) return;
