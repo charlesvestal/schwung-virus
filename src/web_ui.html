@@ -535,14 +535,15 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   // Preset/bank loads are applied ASYNC by the Virus's forked DSP child; the
   // module's get_param("state") blocks until the child confirms the sync, so the
   // manager's re-push already returns the new patch's values — no UI retry needed.
-  function stepPreset(d){ var i=num(state.values["preset"]), c=num(state.values["preset_count"])||1; i=(i+d+c)%c; setParam("preset",i); state.lastPreset=String(i); refreshBrowser(); }
-  function stepBank(d){ var i=num(state.values["bank_index"]), c=num(state.values["bank_count"])||1; i=(i+d+c)%c; setParam("bank_index",i); }
+  function stepPreset(d){ var i=num(state.values["preset"]), c=num(state.values["preset_count"])||1; i=(i+d+c)%c; setParam("preset",i); state.lastPreset=String(i); refreshBrowser(); patchResync(); }
+  function stepBank(d){ var i=num(state.values["bank_index"]), c=num(state.values["bank_count"])||1; i=(i+d+c)%c; setParam("bank_index",i); patchResync(); }
   function stepOctave(d){ var o=Math.max(-4,Math.min(4,num(state.values["octave_transpose"])+d)); setParam("octave_transpose",o); refreshBrowser(); }
 
   function applyParamUpdate(params){ if(!params) return; var b=false;
     Object.keys(params).forEach(function(fk){ var key=fk.indexOf(PREFIX)===0?fk.slice(PREFIX.length):fk; pushValue(key,params[fk]);
       if(/^(preset|preset_name|preset_count|patch_in_bank|bank_index|bank_name|octave_transpose|rom_model)$/.test(key)) b=true;
-      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; } }
+      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; patchResync(); } }   // device-side preset change → pull fresh name
+      if(key==="bank_index"){ var bk=String(params[fk]); if(bk!==state.lastBank){ state.lastBank=bk; patchResync(); } }
       if(key==="rom_model") maybeRebuildForModel(params[fk]); });
     if(b) refreshBrowser();
   }
@@ -552,10 +553,23 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   function rebuild(){ controls={}; state.built=false; document.getElementById("main").innerHTML=""; document.getElementById("tabs").innerHTML=""; build(); seedValues(); }
   function setStatus(t,c){ document.getElementById("statusText").textContent=t; document.getElementById("dot").className=c||""; }
   function resync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} if(state.built) seedValues(); }
+  // Preset/bank NAMES live in the module's SHM state blob and are updated by the
+  // forked-child DSP asynchronously after a program change; the manager's getParam
+  // is cache-only, so a single refresh reads a stale name. Re-pull the metadata on a
+  // stagger (re-subscribing so the manager re-reads slot state fresh) to catch the
+  // async name update. Light: only browser metadata, not all 185 params. Debounced
+  // so a burst of param updates schedules just one wave.
+  function metaResync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} seedMeta(); }
+  function patchResync(){ if(state._rsy) return; state._rsy=1;
+    [200,500,1000,1800].forEach(function(ms){ setTimeout(metaResync,ms); });
+    setTimeout(function(){ state._rsy=0; },1900); }
 
-  function seedValues(){
+  function seedMeta(){
     ["rom_model","preset","preset_name","preset_count","patch_in_bank","bank_index","bank_name","bank_count","octave_transpose"].forEach(function(k){
       remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!==""){ if(k==="rom_model")maybeRebuildForModel(v); else state.values[k]=String(v); refreshBrowser(); } }); });
+  }
+  function seedValues(){
+    seedMeta();
     var keys=Object.keys(controls), i=0;
     (function next(){ var n=0; while(i<keys.length&&n<24){ (function(k){ remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!=="") pushValue(k,v); }); })(keys[i++]); n++; } if(i<keys.length) setTimeout(next,18); })();
   }
