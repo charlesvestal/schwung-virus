@@ -822,6 +822,62 @@ struct virus_instance_t {
 static constexpr double RESAMPLE_RATIO = 46875.0 / 44100.0;
 #define RESAMPLE_MAX_OUT (EMU_CHUNK + 4)
 
+typedef struct {
+    double phase;          /* fractional read position in source samples */
+    float  hl[3], hr[3];   /* 3 trailing source samples → leading context next block */
+} resamp_state_t;
+
+/* MAME 4-point cubic basis (TUS mameResamplers): f0(t)=(t-t^3)/6, f1(t)=t+(t^2-t^3)/2;
+ * out = -s0*f0(1-p) + s1*f1(1-p) + s2*f1(p) - s3*f0(p)  (p=0→s1, p=1→s2). */
+static inline float cubic4(float s0, float s1, float s2, float s3, float p) {
+    float q = 1.0f - p;
+    float f0p = (p - p*p*p) * (1.0f/6.0f);
+    float f1p = p + (p*p - p*p*p) * 0.5f;
+    float f0q = (q - q*q*q) * (1.0f/6.0f);
+    float f1q = q + (q*q - q*q*q) * 0.5f;
+    return -s0*f0q + s1*f1q + s2*f1p - s3*f0p;
+}
+
+/* Resample one stereo block of float[-1,1] @46875 → int16 @44100 with gain, using
+ * 4-point cubic interpolation (cleanest / most transparent; A/B-tested vs linear
+ * and a MAME box-lofi mode — cubic won clearly, so it's the only path). */
+static int resample_block(resamp_state_t *st,
+                          const float *proc_l, const float *proc_r,
+                          int n, float gain, int16_t *out, int max_out) {
+    if (n < 3) return 0;
+
+    /* ext = [hist0,hist1,hist2, src...]: a source position p maps to ext[p+3], so a
+     * slightly-negative carried phase reads the deferred boundary samples from history. */
+    float ext_l[3 + EMU_CHUNK], ext_r[3 + EMU_CHUNK];
+    ext_l[0]=st->hl[0]; ext_l[1]=st->hl[1]; ext_l[2]=st->hl[2];
+    ext_r[0]=st->hr[0]; ext_r[1]=st->hr[1]; ext_r[2]=st->hr[2];
+    memcpy(ext_l+3, proc_l, n*sizeof(float));
+    memcpy(ext_r+3, proc_r, n*sizeof(float));
+
+    double phase = st->phase;
+    double limit = (double)n - 2.0;         /* leave room for the s3 (+2) cubic tap */
+    int oc = 0;
+    while (phase < limit && oc < max_out) {
+        int ip = (int)floor(phase);
+        float f = (float)(phase - ip);
+        int b = ip + 3;                     /* ext index of s1 */
+        float l = cubic4(ext_l[b-1], ext_l[b], ext_l[b+1], ext_l[b+2], f);
+        float r = cubic4(ext_r[b-1], ext_r[b], ext_r[b+1], ext_r[b+2], f);
+        int32_t li = (int32_t)(l * gain * 32767.0f);
+        int32_t ri = (int32_t)(r * gain * 32767.0f);
+        if (li > 32767) li = 32767; if (li < -32768) li = -32768;
+        if (ri > 32767) ri = 32767; if (ri < -32768) ri = -32768;
+        out[oc*2+0] = (int16_t)li;
+        out[oc*2+1] = (int16_t)ri;
+        oc++;
+        phase += RESAMPLE_RATIO;
+    }
+    st->phase = phase - (double)n;          /* carry remainder (may be slightly negative) */
+    st->hl[0]=proc_l[n-3]; st->hl[1]=proc_l[n-2]; st->hl[2]=proc_l[n-1];
+    st->hr[0]=proc_r[n-3]; st->hr[1]=proc_r[n-2]; st->hr[2]=proc_r[n-1];
+    return oc;
+}
+
 static void child_send_midi(virusLib::Microcontroller *mc, const uint8_t *msg, int len) {
     if (!mc || len < 1) return;
     synthLib::SMidiEvent ev(synthLib::MidiEventSource::Host,
@@ -1433,8 +1489,7 @@ static void child_main(virus_shm_t *shm) {
     {
         shm->prof_start_us = now_us();
         float proc_l[EMU_CHUNK], proc_r[EMU_CHUNK];
-        double resample_phase = 0.0;
-        float resample_prev_l = 0.0f, resample_prev_r = 0.0f;
+        resamp_state_t rs; memset(&rs, 0, sizeof(rs));
 
         while (!shm->child_shutdown) {
             /* Process incoming MIDI from parent */
@@ -1494,35 +1549,11 @@ static void child_main(virus_shm_t *shm) {
                 shm->prof_peak_level = 0.0f;
             }
 
-            /* Resample 46875→44100 */
-            float ext_l[EMU_CHUNK + 1], ext_r[EMU_CHUNK + 1];
-            ext_l[0] = resample_prev_l; ext_r[0] = resample_prev_r;
-            memcpy(ext_l + 1, proc_l, EMU_CHUNK * sizeof(float));
-            memcpy(ext_r + 1, proc_r, EMU_CHUNK * sizeof(float));
-
+            /* Resample 46875→44100 (4-point cubic) */
             float gain = (shm->gain_percent > 0) ? (shm->gain_percent / 100.0f) : OUTPUT_GAIN;
-
             int16_t resampled[RESAMPLE_MAX_OUT * 2];
-            int out_count = 0;
-            while (resample_phase < (double)EMU_CHUNK && out_count < RESAMPLE_MAX_OUT) {
-                double ext_pos = resample_phase + 1.0;
-                int idx = (int)ext_pos;
-                double frac = ext_pos - idx;
-                if (idx >= EMU_CHUNK) break;
-                float l = ext_l[idx] * (float)(1.0 - frac) + ext_l[idx + 1] * (float)frac;
-                float r = ext_r[idx] * (float)(1.0 - frac) + ext_r[idx + 1] * (float)frac;
-                int32_t li = (int32_t)(l * gain * 32767.0f);
-                int32_t ri = (int32_t)(r * gain * 32767.0f);
-                if (li > 32767) li = 32767; if (li < -32768) li = -32768;
-                if (ri > 32767) ri = 32767; if (ri < -32768) ri = -32768;
-                resampled[out_count * 2 + 0] = (int16_t)li;
-                resampled[out_count * 2 + 1] = (int16_t)ri;
-                out_count++;
-                resample_phase += RESAMPLE_RATIO;
-            }
-            resample_phase -= (double)EMU_CHUNK;
-            resample_prev_l = proc_l[EMU_CHUNK - 1];
-            resample_prev_r = proc_r[EMU_CHUNK - 1];
+            int out_count = resample_block(&rs, proc_l, proc_r, EMU_CHUNK, gain,
+                                           resampled, RESAMPLE_MAX_OUT);
 
             /* Write to shared ring buffer */
             if (shm_ring_free(shm) < out_count) continue;
