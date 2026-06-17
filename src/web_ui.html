@@ -68,44 +68,60 @@
 
   /* scaled canvas of absolute blocks */
   main{padding:0;overflow-x:auto}
-  .pagewrap{position:relative;overflow:hidden}
+  .pagewrap{position:relative;margin:0 auto}  /* center the capped-width canvas under the full-width header (overflow visible so custom dropdowns aren't clipped) */
   .canvas{position:absolute;top:0;left:0;transform-origin:top left}
   /* Every panel is the Virus oscillator red; --accent (rgb triplet) is the
      per-section header shade — black/gray. Controls render white/gray on top. */
   /* subtle vertical gradient (lightest at centre) + very fine horizontal stripes */
   .block{position:absolute;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 50%,rgba(0,0,0,.16)),rgb(196,52,40);
-    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 6px 4px;
+    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 6px 0;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 7px rgba(0,0,0,.6)}
   /* powder-coat grain: grayscale fractal noise blended over the panel */
   .block::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;z-index:0;
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size:140px 140px;mix-blend-mode:overlay;opacity:.55}
   .block > *{position:relative;z-index:1}
-  .bhead{display:flex;align-items:center;gap:5px;margin:0 -6px 2px;padding:3px 6px;
+  .bhead{display:flex;align-items:center;gap:4px;margin:0 -6px 2px;padding:2px 6px;line-height:1;
     background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.28)),rgb(var(--accent,34,34,36));
     border-bottom:1px solid rgba(0,0,0,.5);box-shadow:inset 0 -1px 0 rgba(255,255,255,.05);border-radius:var(--r) var(--r) 0 0}
-  .bhead .t{font-size:9.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
-  .bhead .led{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 4px rgba(255,255,255,.5);flex:none}
+  .bhead .t{font-size:7.1px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
+  .bhead .led{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 4px rgba(255,255,255,.5);flex:none}
 
   .controls{position:relative}
   .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
   .ctl.pkdim{opacity:.3}   /* osc wave-select / pulse-width sidelined by current Shape zone */
-  .ctl > label{font-size:7.1px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.05;height:15px;
+  .ctl > label{font-size:6.3px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.0;height:12px;
     overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%;text-shadow:0 1px 1px rgba(0,0,0,.5)}
-  .ctl .val{font-size:8.2px;color:rgba(255,255,255,.85);min-height:9px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
+  .ctl .val{font-size:7.2px;color:rgba(255,255,255,.85);min-height:8px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
   .knobsvg{width:40px;height:40px;display:block;margin:-4px 0 -8px;cursor:ns-resize;touch-action:none}
   .kbody{fill:url(#kgrad);stroke:#000;stroke-width:1}
   .karc{fill:none;stroke:rgba(0,0,0,.5);stroke-width:3;stroke-linecap:round}
   .kfill{fill:none;stroke:rgba(245,242,236,.42);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
   .kptr{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
-  .ctl.sel select{width:100%;height:22px;background:linear-gradient(180deg,#1d1e21,#101113);border:1px solid #000;border-radius:4px;
-    color:#ff5142;font-size:7.8px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:0 3px;cursor:pointer;text-align:center;text-align-last:center}
-  .ctl.sel select option{color:#ff5142;background:#141519;text-transform:uppercase}
-  .ctl.sel select:hover{border-color:rgba(255,255,255,.4)}
-  .sw{width:42px;height:22px;border-radius:11px;background:rgba(0,0,0,.45);border:1px solid #000;position:relative;cursor:pointer;transition:background .12s}
-  .sw .dot{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#54585f;transition:.12s}
-  .sw.on{background:rgba(255,255,255,.28)}
-  .sw.on .dot{left:22px;background:#fff;box-shadow:0 0 6px rgba(255,255,255,.7)}
+  .krim{fill:#0c0d0f}                                              /* beveled dark rim under the body */
+  .kticks{stroke:rgba(255,255,255,.30);stroke-width:.8;stroke-linecap:round}  /* dial skirt marks */
+  .kknurl{stroke:rgba(0,0,0,.42);stroke-width:.7}                  /* radial grip texture on the rim */
+  /* custom dropdown (native <select> popups ignore page zoom + can't size their list) */
+  .ctl.sel .pick{position:relative;width:100%;height:16px;border:1px solid #000;border-radius:4px;cursor:pointer;
+    background:linear-gradient(180deg,#1d1e21,#101113);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+  .ctl.sel .pick:hover{border-color:rgba(255,255,255,.4)}
+  .ctl.sel .pickval{color:#ffd21f;font-size:6px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 9px}
+  .ctl.sel .pickarr{position:absolute;right:3px;top:50%;margin-top:-2px;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid #ff5142;pointer-events:none}
+  .ctl.sel .picklist{display:none;position:absolute;left:0;top:18px;min-width:100%;width:max-content;max-width:130px;z-index:5;
+    background:#15171b;border:1px solid #000;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.7);max-height:140px;overflow-y:auto;padding:2px}
+  .ctl.sel.open .picklist{display:block}
+  .ctl.sel .pickopt{color:#ffd21f;font-size:6px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;white-space:nowrap;cursor:pointer;border-radius:2px}
+  .ctl.sel .pickopt:hover{background:#2a2d33}
+  .ctl.sel .pickopt.on{background:#3a2410}
+  /* hardware-style portrait push-button + top-left corner LED (Access Virus front panel) */
+  .sw{width:19px;height:24px;border-radius:4px;cursor:pointer;position:relative;
+    background:radial-gradient(130% 70% at 50% -12%,rgba(255,255,255,.22),rgba(255,255,255,0) 55%),linear-gradient(180deg,#45484e 0%,#313439 42%,#17191d 100%);
+    border:1px solid #000;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.20),inset 0 -3px 4px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.6);transition:.1s}
+  .sw:active{background:linear-gradient(180deg,#303237,#141518);box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
+  .sw .dot{position:absolute;top:3px;left:50%;margin-left:-2px;width:4px;height:4px;border-radius:50%;
+    background:#2a2407;box-shadow:inset 0 0 1px rgba(0,0,0,.9);transition:.12s}
+  .sw.on .dot{background:#ffd21f;box-shadow:0 0 5px 1.5px rgba(255,205,20,.9),inset 0 0 1px rgba(255,245,190,.95)}
   .divider{position:absolute;z-index:6;border-radius:1px}
   .divider.dv{background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
   .divider.dh{background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
@@ -157,7 +173,7 @@ var BIPOLAR = {"osc1_semitone":1, "osc1_keyfollow":1, "osc2_semitone":1, "osc2_f
 </script>
 <script>
 /* Custom layout (tools/osiruslayout.json). */
-var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"band":"osc","title":"Osc 1","cols":5,"x":8,"y":8,"w":null,"h":152,"controls":[{"key":"osc1_wave_select","col":0,"row":0,"span":2},{"key":"osc1_shape","col":2,"row":0,"span":1},{"key":"osc1_pulsewidth","col":3,"row":0,"span":1},{"key":"osc1_semitone","col":0,"row":1,"span":1},{"key":"osc1_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Osc 2","cols":10,"x":256,"y":8,"w":null,"h":152,"controls":[{"key":"osc2_wave_select","col":0,"row":0,"span":2},{"key":"osc2_shape","col":2,"row":0,"span":1},{"key":"osc2_pulsewidth","col":3,"row":0,"span":1},{"key":"osc2_semitone","col":0,"row":1,"span":1},{"key":"osc2_detune","col":1,"row":1,"span":1},{"key":"osc2_sync","col":4,"row":0,"span":1},{"key":"osc2_fm_amount","col":5,"row":1,"span":1},{"key":"osc_fm_mode","col":5,"row":0,"span":2},{"key":"osc2_filt_env_amt","col":3,"row":1,"span":1},{"key":"fm_filt_env_amt","col":6,"row":1,"span":1},{"key":"osc2_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Common","cols":3,"x":400,"y":196,"w":248,"h":84,"controls":[{"key":"osc_init_phase","col":0,"row":0,"span":1},{"key":"punch_intensity","col":1,"row":0,"span":1},{"key":"noise_color","col":2,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Unison","cols":5,"x":8,"y":196,"w":368,"h":84,"controls":[{"key":"unison_mode","col":0,"row":0,"span":2},{"key":"unison_detune","col":2,"row":0,"span":1},{"key":"unison_pan_spread","col":3,"row":0,"span":1},{"key":"unison_lfo_phase","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Mixer","cols":2,"x":672,"y":8,"w":136,"h":200,"controls":[{"key":"osc_balance","col":0,"row":0,"span":1},{"key":"osc_mainvolume","col":1,"row":0,"span":1},{"key":"sub_osc_volume","col":0,"row":1,"span":1},{"key":"noise_volume","col":1,"row":1,"span":1},{"key":"ringmod_volume","col":0,"row":2,"span":1},{"key":"sub_osc_shape","col":0,"row":3,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 1","cols":4,"x":8,"y":316,"w":null,"h":136,"controls":[{"key":"cutoff","col":0,"row":0,"span":1},{"key":"filter1_resonance","col":1,"row":0,"span":1},{"key":"filter1_env_amt","col":2,"row":0,"span":1},{"key":"filter1_keyfollow","col":3,"row":0,"span":1},{"key":"filter1_mode","col":0,"row":1,"span":2},{"key":"filter1_env_polarity","col":2,"row":1,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 2","cols":4,"x":256,"y":316,"w":216,"h":112,"controls":[{"key":"cutoff2_offset","col":0,"row":0,"span":1},{"key":"filter2_resonance","col":1,"row":0,"span":1},{"key":"filter2_env_amt","col":2,"row":0,"span":1},{"key":"filter2_keyfollow","col":3,"row":0,"span":1},{"key":"filter2_mode","col":0,"row":1,"span":2},{"key":"filter2_env_polarity","col":2,"row":1,"span":2},{"key":"filter2_cutoff_link","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Routing","cols":6,"x":560,"y":316,"w":248,"h":null,"controls":[{"key":"filter_routing","col":0,"row":0,"span":2},{"key":"filter_select","col":2,"row":0,"span":2},{"key":"filter_balance","col":3,"row":1,"span":1},{"key":"saturation_curve","col":0,"row":1,"span":2},{"key":"filter_keytrack_base","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Envelope","cols":5,"x":416,"y":488,"w":392,"h":72,"controls":[{"key":"flt_attack","col":1,"row":0,"span":1},{"key":"flt_decay","col":2,"row":0,"span":1},{"key":"flt_sustain","col":3,"row":0,"span":1},{"key":"flt_sustain_time","col":4,"row":0,"span":1},{"key":"flt_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Amp Envelope","cols":5,"x":8,"y":488,"w":384,"h":72,"controls":[{"key":"amp_attack","col":1,"row":0,"span":1},{"key":"amp_decay","col":2,"row":0,"span":1},{"key":"amp_sustain","col":3,"row":0,"span":1},{"key":"amp_sustain_time","col":4,"row":0,"span":1},{"key":"amp_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Velocity Mod","cols":10,"x":8,"y":596,"w":800,"h":null,"controls":[{"key":"osc1_shape_velocity","col":2,"row":0,"span":1},{"key":"osc2_shape_velocity","col":3,"row":0,"span":1},{"key":"pulsewidth_velocity","col":4,"row":0,"span":1},{"key":"fm_amount_velocity","col":5,"row":0,"span":1},{"key":"flt1_envamt_velocity","col":6,"row":0,"span":1},{"key":"flt2_envamt_velocity","col":7,"row":0,"span":1},{"key":"resonance1_velocity","col":8,"row":0,"span":1},{"key":"resonance2_velocity","col":9,"row":0,"span":1},{"key":"amp_velocity","col":10,"row":0,"span":1},{"key":"panorama_velocity","col":11,"row":0,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1","cols":4,"x":8,"y":700,"w":176,"h":280,"controls":[{"key":"lfo1_rate","col":0,"row":0,"span":1},{"key":"lfo1_clock","col":1,"row":0,"span":2},{"key":"lfo1_shape","col":1,"row":1,"span":2},{"key":"lfo1_mode","col":1,"row":2,"span":2},{"key":"lfo1_env_mode","col":0,"row":2,"span":1},{"key":"lfo1_symmetry","col":0,"row":1,"span":1},{"key":"lfo1_keyfollow","col":1,"row":3,"span":1},{"key":"lfo1_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1 \u2192 Mod","cols":3,"x":208,"y":700,"w":184,"h":280,"controls":[{"key":"osc1_lfo1_amount","col":0,"row":0,"span":1},{"key":"osc2_lfo1_amount","col":1,"row":0,"span":1},{"key":"pw_lfo1_amount","col":2,"row":0,"span":1},{"key":"reso_lfo1_amount","col":0,"row":1,"span":1},{"key":"filtgain_lfo1_amount","col":1,"row":1,"span":1},{"key":"lfo1_assign_dest","col":0,"row":2,"span":2},{"key":"lfo1_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2","cols":4,"x":416,"y":700,"w":184,"h":280,"controls":[{"key":"lfo2_rate","col":0,"row":0,"span":1},{"key":"lfo2_clock","col":1,"row":0,"span":2},{"key":"lfo2_shape","col":1,"row":1,"span":2},{"key":"lfo2_mode","col":1,"row":2,"span":2},{"key":"lfo2_env_mode","col":0,"row":2,"span":1},{"key":"lfo2_symmetry","col":0,"row":1,"span":1},{"key":"lfo2_keyfollow","col":1,"row":3,"span":1},{"key":"lfo2_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2 \u2192 Mod","cols":3,"x":624,"y":700,"w":184,"h":280,"controls":[{"key":"shape_lfo2_amount","col":0,"row":0,"span":1},{"key":"fm_lfo2_amount","col":1,"row":0,"span":1},{"key":"cutoff1_lfo2_amount","col":2,"row":0,"span":1},{"key":"cutoff2_lfo2_amount","col":0,"row":1,"span":1},{"key":"pan_lfo2_amount","col":1,"row":1,"span":1},{"key":"lfo2_assign_dest","col":0,"row":2,"span":2},{"key":"lfo2_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 3","cols":2,"x":8,"y":1016,"w":112,"h":280,"controls":[{"key":"lfo3_rate","col":0,"row":0,"span":1},{"key":"lfo3_clock","col":0,"row":1,"span":2},{"key":"lfo3_shape","col":0,"row":2,"span":2},{"key":"lfo3_mode","col":0,"row":3,"span":2},{"key":"lfo3_keyfollow","col":1,"row":6,"span":1},{"key":"lfo3_destination","col":0,"row":4,"span":2},{"key":"osc_lfo3_amount","col":0,"row":5,"span":1},{"key":"lfo3_fadein_time","col":0,"row":6,"span":1}],"dividers":[]},{"band":"lfo","title":"Assign","cols":9,"x":144,"y":1016,"w":664,"h":216,"controls":[{"key":"assign1_source","col":0,"row":0,"span":2},{"key":"assign1_destination","col":2,"row":0,"span":2},{"key":"assign1_amount","col":4,"row":0,"span":1},{"key":"assign2_source","col":0,"row":1,"span":2},{"key":"assign2_dest1","col":2,"row":1,"span":2},{"key":"assign2_amount1","col":4,"row":1,"span":1},{"key":"assign2_dest2","col":5,"row":1,"span":2},{"key":"assign2_amount2","col":7,"row":1,"span":1},{"key":"assign3_source","col":0,"row":2,"span":2},{"key":"assign3_dest1","col":2,"row":2,"span":2},{"key":"assign3_amount1","col":4,"row":2,"span":1},{"key":"assign3_dest2","col":5,"row":2,"span":2},{"key":"assign3_amount2","col":7,"row":2,"span":1},{"key":"assign3_dest3","col":8,"row":2,"span":2},{"key":"assign3_amount3","col":10,"row":2,"span":1}],"dividers":[]},{"band":"fx","title":"Chorus","cols":4,"x":640,"y":1268,"w":null,"h":224,"controls":[{"key":"chorus_mix","col":0,"row":0,"span":1},{"key":"chorus_rate","col":1,"row":0,"span":1},{"key":"chorus_depth","col":2,"row":0,"span":1},{"key":"chorus_delay","col":1,"row":1,"span":1},{"key":"chorus_feedback","col":0,"row":1,"span":1},{"key":"chorus_lfo_shape","col":0,"row":2,"span":2}],"dividers":[]},{"band":"fx","title":"Delay / Reverb","cols":6,"x":392,"y":1268,"w":null,"h":224,"controls":[{"key":"delay_reverb_mode","col":0,"row":0,"span":2},{"key":"effect_send","col":2,"row":0,"span":1},{"key":"delay_time","col":0,"row":1,"span":1},{"key":"delay_feedback","col":3,"row":1,"span":1},{"key":"delay_rate_rev_decay","col":1,"row":1,"span":1},{"key":"delay_depth","col":2,"row":1,"span":1},{"key":"delay_lfo_shape","col":0,"row":2,"span":2},{"key":"delay_color","col":3,"row":0,"span":1},{"key":"delay_clock","col":2,"row":2,"span":2}],"dividers":[]},{"band":"arp","title":"Arpeggiator","cols":4,"x":144,"y":1268,"w":null,"h":224,"controls":[{"key":"arp_mode","col":0,"row":0,"span":2},{"key":"arp_pattern","col":2,"row":0,"span":1},{"key":"arp_octave_range","col":0,"row":1,"span":2},{"key":"arp_hold","col":3,"row":1,"span":1},{"key":"arp_note_length","col":3,"row":0,"span":1},{"key":"arp_swing","col":3,"row":2,"span":1},{"key":"arp_clock","col":0,"row":2,"span":2},{"key":"clock_tempo","col":2,"row":2,"span":1}],"dividers":[]},{"band":"arp","title":"Patch / Output","cols":5,"x":8,"y":1528,"w":804,"h":128,"controls":[{"key":"patch_volume","col":1,"row":0,"span":1},{"key":"panorama","col":3,"row":0,"span":1},{"key":"transpose","col":8,"row":0,"span":1},{"key":"key_mode","col":5,"row":0,"span":2},{"key":"portamento_time","col":10,"row":0,"span":1},{"key":"bender_range_up","col":12,"row":0,"span":1},{"key":"bender_range_down","col":12,"row":1,"span":1}],"dividers":[]}]};
+var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"band":"osc","title":"Osc 1","cols":5,"x":8,"y":8,"w":null,"h":152,"controls":[{"key":"osc1_wave_select","col":0,"row":0,"span":2},{"key":"osc1_shape","col":2,"row":0,"span":1},{"key":"osc1_pulsewidth","col":3,"row":0,"span":1},{"key":"osc1_semitone","col":0,"row":1,"span":1},{"key":"osc1_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Osc 2","cols":10,"x":256,"y":8,"w":null,"h":152,"controls":[{"key":"osc2_wave_select","col":0,"row":0,"span":2},{"key":"osc2_shape","col":2,"row":0,"span":1},{"key":"osc2_pulsewidth","col":3,"row":0,"span":1},{"key":"osc2_semitone","col":0,"row":1,"span":1},{"key":"osc2_detune","col":1,"row":1,"span":1},{"key":"osc2_sync","col":4,"row":0,"span":1},{"key":"osc2_fm_amount","col":5,"row":1,"span":1},{"key":"osc_fm_mode","col":5,"row":0,"span":2},{"key":"osc2_filt_env_amt","col":3,"row":1,"span":1},{"key":"fm_filt_env_amt","col":6,"row":1,"span":1},{"key":"osc2_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Common","cols":3,"x":400,"y":196,"w":248,"h":84,"controls":[{"key":"osc_init_phase","col":0,"row":0,"span":1},{"key":"punch_intensity","col":1,"row":0,"span":1},{"key":"noise_color","col":2,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Unison","cols":5,"x":8,"y":196,"w":368,"h":84,"controls":[{"key":"unison_mode","col":0,"row":0,"span":2},{"key":"unison_detune","col":2,"row":0,"span":1},{"key":"unison_pan_spread","col":3,"row":0,"span":1},{"key":"unison_lfo_phase","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Mixer","cols":2,"x":672,"y":8,"w":136,"h":200,"controls":[{"key":"osc_balance","col":0,"row":0,"span":1},{"key":"osc_mainvolume","col":1,"row":0,"span":1},{"key":"sub_osc_volume","col":0,"row":1,"span":1},{"key":"noise_volume","col":1,"row":1,"span":1},{"key":"ringmod_volume","col":0,"row":2,"span":1},{"key":"sub_osc_shape","col":0,"row":3,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 1","cols":4,"x":8,"y":316,"w":null,"h":136,"controls":[{"key":"cutoff","col":0,"row":0,"span":1},{"key":"filter1_resonance","col":1,"row":0,"span":1},{"key":"filter1_env_amt","col":2,"row":0,"span":1},{"key":"filter1_keyfollow","col":3,"row":0,"span":1},{"key":"filter1_mode","col":0,"row":1,"span":2},{"key":"filter1_env_polarity","col":2,"row":1,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 2","cols":4,"x":256,"y":316,"w":216,"h":112,"controls":[{"key":"cutoff2_offset","col":0,"row":0,"span":1},{"key":"filter2_resonance","col":1,"row":0,"span":1},{"key":"filter2_env_amt","col":2,"row":0,"span":1},{"key":"filter2_keyfollow","col":3,"row":0,"span":1},{"key":"filter2_mode","col":0,"row":1,"span":2},{"key":"filter2_env_polarity","col":2,"row":1,"span":2},{"key":"filter2_cutoff_link","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Routing","cols":6,"x":560,"y":316,"w":248,"h":null,"controls":[{"key":"filter_routing","col":0,"row":0,"span":2},{"key":"filter_select","col":2,"row":0,"span":2},{"key":"filter_balance","col":3,"row":1,"span":1},{"key":"saturation_curve","col":0,"row":1,"span":2},{"key":"filter_keytrack_base","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Envelope","cols":5,"x":416,"y":488,"w":392,"h":72,"controls":[{"key":"flt_attack","col":1,"row":0,"span":1},{"key":"flt_decay","col":2,"row":0,"span":1},{"key":"flt_sustain","col":3,"row":0,"span":1},{"key":"flt_sustain_time","col":4,"row":0,"span":1},{"key":"flt_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Amp Envelope","cols":5,"x":8,"y":488,"w":384,"h":72,"controls":[{"key":"amp_attack","col":1,"row":0,"span":1},{"key":"amp_decay","col":2,"row":0,"span":1},{"key":"amp_sustain","col":3,"row":0,"span":1},{"key":"amp_sustain_time","col":4,"row":0,"span":1},{"key":"amp_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Velocity Mod","cols":10,"x":8,"y":596,"w":800,"h":null,"controls":[{"key":"osc1_shape_velocity","col":2,"row":0,"span":1},{"key":"osc2_shape_velocity","col":3,"row":0,"span":1},{"key":"pulsewidth_velocity","col":4,"row":0,"span":1},{"key":"fm_amount_velocity","col":5,"row":0,"span":1},{"key":"flt1_envamt_velocity","col":6,"row":0,"span":1},{"key":"flt2_envamt_velocity","col":7,"row":0,"span":1},{"key":"resonance1_velocity","col":8,"row":0,"span":1},{"key":"resonance2_velocity","col":9,"row":0,"span":1},{"key":"amp_velocity","col":10,"row":0,"span":1},{"key":"panorama_velocity","col":11,"row":0,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1","cols":4,"x":8,"y":700,"w":176,"h":280,"controls":[{"key":"lfo1_rate","col":0,"row":0,"span":1},{"key":"lfo1_clock","col":1,"row":0,"span":2},{"key":"lfo1_shape","col":1,"row":1,"span":2},{"key":"lfo1_mode","col":1,"row":2,"span":2},{"key":"lfo1_env_mode","col":0,"row":2,"span":1},{"key":"lfo1_symmetry","col":0,"row":1,"span":1},{"key":"lfo1_keyfollow","col":1,"row":3,"span":1},{"key":"lfo1_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1 \u2192 Mod","cols":3,"x":208,"y":700,"w":184,"h":280,"controls":[{"key":"osc1_lfo1_amount","col":0,"row":0,"span":1},{"key":"osc2_lfo1_amount","col":1,"row":0,"span":1},{"key":"pw_lfo1_amount","col":2,"row":0,"span":1},{"key":"reso_lfo1_amount","col":0,"row":1,"span":1},{"key":"filtgain_lfo1_amount","col":1,"row":1,"span":1},{"key":"lfo1_assign_dest","col":0,"row":2,"span":2},{"key":"lfo1_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2","cols":4,"x":416,"y":700,"w":184,"h":280,"controls":[{"key":"lfo2_rate","col":0,"row":0,"span":1},{"key":"lfo2_clock","col":1,"row":0,"span":2},{"key":"lfo2_shape","col":1,"row":1,"span":2},{"key":"lfo2_mode","col":1,"row":2,"span":2},{"key":"lfo2_env_mode","col":0,"row":2,"span":1},{"key":"lfo2_symmetry","col":0,"row":1,"span":1},{"key":"lfo2_keyfollow","col":1,"row":3,"span":1},{"key":"lfo2_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2 \u2192 Mod","cols":3,"x":624,"y":700,"w":184,"h":280,"controls":[{"key":"shape_lfo2_amount","col":0,"row":0,"span":1},{"key":"fm_lfo2_amount","col":1,"row":0,"span":1},{"key":"cutoff1_lfo2_amount","col":2,"row":0,"span":1},{"key":"cutoff2_lfo2_amount","col":0,"row":1,"span":1},{"key":"pan_lfo2_amount","col":1,"row":1,"span":1},{"key":"lfo2_assign_dest","col":0,"row":2,"span":2},{"key":"lfo2_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 3","cols":2,"x":8,"y":1016,"w":112,"h":280,"controls":[{"key":"lfo3_rate","col":0,"row":0,"span":1},{"key":"lfo3_clock","col":0,"row":1,"span":2},{"key":"lfo3_shape","col":0,"row":2,"span":2},{"key":"lfo3_mode","col":0,"row":3,"span":2},{"key":"lfo3_keyfollow","col":1,"row":6,"span":1},{"key":"lfo3_destination","col":0,"row":4,"span":2},{"key":"osc_lfo3_amount","col":0,"row":5,"span":1},{"key":"lfo3_fadein_time","col":0,"row":6,"span":1}],"dividers":[]},{"band":"lfo","title":"Assign","cols":9,"x":144,"y":1016,"w":664,"h":216,"controls":[{"key":"assign1_source","col":0,"row":0,"span":2},{"key":"assign1_destination","col":2,"row":0,"span":2},{"key":"assign1_amount","col":4,"row":0,"span":1},{"key":"assign2_source","col":0,"row":1,"span":2},{"key":"assign2_dest1","col":2,"row":1,"span":2},{"key":"assign2_amount1","col":4,"row":1,"span":1},{"key":"assign2_dest2","col":5,"row":1,"span":2},{"key":"assign2_amount2","col":7,"row":1,"span":1},{"key":"assign3_source","col":0,"row":2,"span":2},{"key":"assign3_dest1","col":2,"row":2,"span":2},{"key":"assign3_amount1","col":4,"row":2,"span":1},{"key":"assign3_dest2","col":5,"row":2,"span":2},{"key":"assign3_amount2","col":7,"row":2,"span":1},{"key":"assign3_dest3","col":8,"row":2,"span":2},{"key":"assign3_amount3","col":10,"row":2,"span":1}],"dividers":[]},{"band":"fx","title":"Chorus","cols":4,"x":640,"y":1268,"w":null,"h":224,"controls":[{"key":"chorus_mix","col":0,"row":0,"span":1},{"key":"chorus_rate","col":1,"row":0,"span":1},{"key":"chorus_depth","col":2,"row":0,"span":1},{"key":"chorus_delay","col":1,"row":1,"span":1},{"key":"chorus_feedback","col":0,"row":1,"span":1},{"key":"chorus_lfo_shape","col":0,"row":2,"span":2}],"dividers":[]},{"band":"fx","title":"Delay / Reverb","cols":6,"x":392,"y":1268,"w":null,"h":224,"controls":[{"key":"delay_reverb_mode","col":0,"row":0,"span":2},{"key":"effect_send","col":2,"row":0,"span":1},{"key":"delay_time","col":0,"row":1,"span":1},{"key":"delay_feedback","col":3,"row":1,"span":1},{"key":"delay_rate_rev_decay","col":1,"row":1,"span":1},{"key":"delay_depth","col":2,"row":1,"span":1},{"key":"delay_lfo_shape","col":0,"row":2,"span":2},{"key":"delay_color","col":3,"row":0,"span":1},{"key":"delay_clock","col":2,"row":2,"span":2}],"dividers":[]},{"band":"arp","title":"Arpeggiator","cols":4,"x":144,"y":1268,"w":null,"h":224,"controls":[{"key":"arp_mode","col":0,"row":0,"span":2},{"key":"arp_pattern","col":2,"row":0,"span":1},{"key":"arp_octave_range","col":0,"row":1,"span":2},{"key":"arp_hold","col":3,"row":1,"span":1},{"key":"arp_note_length","col":3,"row":0,"span":1},{"key":"arp_swing","col":3,"row":2,"span":1},{"key":"arp_clock","col":0,"row":2,"span":2},{"key":"clock_tempo","col":2,"row":2,"span":1}],"dividers":[]},{"band":"arp","title":"Patch / Output","cols":5,"x":8,"y":1528,"w":804,"h":128,"controls":[{"key":"patch_volume","col":0,"row":0,"span":1},{"key":"panorama","col":1,"row":0,"span":1},{"key":"key_mode","col":2,"row":0,"span":2},{"key":"transpose","col":4,"row":0,"span":1},{"key":"portamento_time","col":5,"row":0,"span":1},{"key":"bender_range_up","col":6,"row":0,"span":1},{"key":"bender_range_down","col":7,"row":0,"span":1}],"dividers":[]}]};
 </script>
 <script>
 (function(){
@@ -172,10 +188,23 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   };
 
   var DESIGN_W=(LAYOUT.canvasWidth)||1130;
+  // Cap the rendered canvas width to match the OB-Xd remote UI (its rack is a
+  // fixed min-width:980 in schwung-obxd/src/web_ui.html). The canvas scales
+  // proportionally down to this instead of filling the wider (~1130) iframe;
+  // the preset/sync header (outside #main) keeps its own full width.
+  var TARGET_W=980;
   // Compaction (orig cell 56x68). Tighter cells + block positions pulled toward
   // the origin so gaps close while the relative arrangement is preserved. The
   // canvas is width-normalised, so BY (vertical pull) is the real density win.
-  var CW=50, RH=58, BX=0.90, BY=0.85;
+  // Cell pitch for params; knobs/selects are fixed px, so a smaller cell packs
+  // them closer relative to their size. BX/BY pull block positions by the same
+  // factor (BX=CW/56, BY=RH/68 vs the arranger's original 56x68 cell) so the
+  // block ARRANGEMENT stays proportional while the params tighten.
+  var CW=44, RH=52, BX=0.786, BY=0.765;
+  // A row containing only pickers (selects) needs far less height than a knob row,
+  // so it gets SHORT pitch instead of RH — removes the dead space a short select
+  // row would otherwise reserve at the knob-row pitch.
+  var SHORT=32;
   // Jump-menu sections (finer than the arranger's coarse bands). Order = scroll order.
   var BANDS=[{id:"osc",label:"OSC"},{id:"filt",label:"FILT"},{id:"env",label:"ENV"},
              {id:"lfo",label:"LFO"},{id:"asng",label:"ASNG"},{id:"arpfx",label:"ARP/FX"}];
@@ -240,7 +269,14 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     var degC=bip ? (-135+(center-min)/(max-min)*270) : -135;  // fill origin: center for bipolar, min otherwise
     var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
     var svg=document.createElementNS(NS,"svg"); svg.setAttribute("viewBox","0 0 40 40"); svg.setAttribute("class","knobsvg");
-    var body=document.createElementNS(NS,"circle"); body.setAttribute("cx",20); body.setAttribute("cy",20); body.setAttribute("r",14); body.setAttribute("class","kbody"); svg.appendChild(body);
+    // dial skirt ticks (outside the body)
+    var tk="",N=15; for(var i=0;i<N;i++){ var d=-135+i*(270/(N-1)), a=polar(20,20,15.6,d), b=polar(20,20,17.8,d); tk+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
+    var ticks=document.createElementNS(NS,"path"); ticks.setAttribute("class","kticks"); ticks.setAttribute("d",tk); svg.appendChild(ticks);
+    var rim=document.createElementNS(NS,"circle"); rim.setAttribute("cx",20); rim.setAttribute("cy",20); rim.setAttribute("r",14.2); rim.setAttribute("class","krim"); svg.appendChild(rim);
+    var body=document.createElementNS(NS,"circle"); body.setAttribute("cx",20); body.setAttribute("cy",20); body.setAttribute("r",13.4); body.setAttribute("class","kbody"); svg.appendChild(body);
+    // knurled grip ridges around the rim (texture)
+    var kn="",M=36; for(var i=0;i<M;i++){ var d=i*(360/M), a=polar(20,20,11.4,d), b=polar(20,20,13.6,d); kn+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
+    var knurl=document.createElementNS(NS,"path"); knurl.setAttribute("class","kknurl"); knurl.setAttribute("d",kn); svg.appendChild(knurl);
     var trk=document.createElementNS(NS,"path"); trk.setAttribute("class","karc"); trk.setAttribute("d",arc(13,-135,135)); svg.appendChild(trk);
     var fill=document.createElementNS(NS,"path"); fill.setAttribute("class","kfill"); svg.appendChild(fill);
     var ptr=document.createElementNS(NS,"line"); ptr.setAttribute("class","kptr"); ptr.setAttribute("x1",20); ptr.setAttribute("y1",20); svg.appendChild(ptr);
@@ -265,10 +301,20 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
   }
   function makeSelect(key,m,opts,nm){
     var wrap=el("div","ctl sel"); wrap.appendChild(lbl(nm,m.name));
-    var sel=el("select"); opts.forEach(function(o,i){ var op=el("option",null,o); op.value=i; sel.appendChild(op); });
-    sel.onchange=function(){ setParam(key,sel.value); };
-    onValue(key,function(v){ sel.value=String(num(v)); });
-    sel.value=String(num(state.values[key]||0)); wrap.appendChild(sel); return wrap;
+    var pick=el("div","pick"); var valSpan=el("span","pickval"); pick.appendChild(valSpan); pick.appendChild(el("span","pickarr"));
+    var list=el("div","picklist");
+    opts.forEach(function(o,i){ var it=el("div","pickopt",o);
+      it.onclick=function(e){ e.stopPropagation(); setParam(key,i); setVal(i); close(); };
+      list.appendChild(it); });
+    pick.appendChild(list); wrap.appendChild(pick);
+    function setVal(i){ valSpan.textContent=opts[i]!==undefined?opts[i]:"";
+      for(var c=0;c<list.children.length;c++) list.children[c].classList.toggle("on",c===i); }
+    function onDoc(){ close(); }
+    function close(){ wrap.classList.remove("open"); var b=wrap.closest(".block"); if(b) b.style.zIndex=""; document.removeEventListener("click",onDoc); }
+    function open(){ wrap.classList.add("open"); var b=wrap.closest(".block"); if(b) b.style.zIndex="1000"; document.addEventListener("click",onDoc); }
+    pick.onclick=function(e){ e.stopPropagation(); if(wrap.classList.contains("open")) close(); else open(); };
+    onValue(key,function(v){ setVal(num(v)); });
+    setVal(num(state.values[key]||0)); return wrap;
   }
   function makeToggle(key,m,opts,nm){
     var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
@@ -308,7 +354,7 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     "Arpeggiator":K3,
     "Chorus":K4,"Delay / Reverb":K4
   };
-  function accentFor(title){ return /^LFO/.test(title) ? K1 : (BLOCK_ACCENT[title]||null); }
+  function accentFor(title){ return K3; }   // uniform header shade (the Amp Envelope gray) — dark per-section shades blended into the bg
 
   // ---- build the scaled canvas of absolute blocks ----
   function build(){
@@ -317,13 +363,31 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     var wrap=el("div","pagewrap"); var canvas=el("div","canvas"); canvas.style.width=DESIGN_W+"px";
     state.canvas=canvas; state.wrap=wrap; state.bandFirst={}; var stretch=[];
     LAYOUT.blocks.forEach(function(block){
-      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0, minC=Infinity;
+      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0, minC=Infinity, rowSel=[], rowHas=[], rowKnob=[];
       (block.controls||[]).forEach(function(c){
         var node=makeControl(c.key,strip); if(!node) return; any=true;
-        node.style.left=(c.col*CW)+"px"; node.style.top=(c.row*RH)+"px"; node.style.width=(c.span*CW-4)+"px";
+        node.style.left=(c.col*CW)+"px"; node.style.width=(c.span*CW-4)+"px"; node.dataset.row=c.row;
         nodes.push(node); if(c.row+1>maxR)maxR=c.row+1; if(c.col+c.span>maxC)maxC=c.col+c.span; if(c.col<minC)minC=c.col;
+        if(rowSel[c.row]===undefined) rowSel[c.row]=true;
+        if(!node.classList.contains("sel")) rowSel[c.row]=false;   // any knob/toggle → full-height row
+        if(node.querySelector(".knobsvg")) rowKnob[c.row]=true;     // row has a knob
+        rowHas[c.row]=true;
       });
       if(!any) return;                                  // fully model-gated → skip block
+      // Stack rows with per-row pitch (SHORT for picker-only rows, RH otherwise).
+      var rowTop=[], yy=0;
+      for(var r=0;r<maxR;r++){ rowTop[r]=yy; if(rowHas[r]) yy+=(rowSel[r]?SHORT:RH); }
+      nodes.forEach(function(n){ n.style.top=rowTop[+n.dataset.row]+"px"; });
+      // Vertically centre pickers/switches that share a row with a knob: the knob
+      // circle sits ~ALIGN px lower in its box than a select/switch, so push only
+      // the control element (not its label) down to match the knob centre. The
+      // switch value rides down with it. Picker/switch-only rows are untouched.
+      nodes.forEach(function(n){
+        if(!rowKnob[+n.dataset.row] || n.querySelector(".knobsvg")) return;
+        var sel=n.querySelector(".pick"), sw=n.querySelector(".sw");
+        if(sel) sel.style.marginTop="8px";        // 16px picker centred on the knob
+        else if(sw) sw.style.marginTop="4px";     // 24px switch is taller → push less
+      });
       var card=el("div","block"); card.style.left=(block.x*BX)+"px"; card.style.top=(block.y*BY)+"px";
       var ac=accentFor(block.title); if(ac) card.style.setProperty("--accent",ac);
       var head=el("div","bhead"); head.appendChild(el("span","led")); head.appendChild(el("span","t",block.title)); card.appendChild(head);
@@ -331,7 +395,7 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
       var bw=Math.max(maxC*CW, (block.w||0)*CW/56);
       var mnC=(minC===Infinity?0:minC), contentW=(maxC-mnC)*CW;
       var offX=(bw-contentW)/2 - mnC*CW;   // centre the param cluster as a unit, accounting for its start column
-      bodyEl.style.width=bw+"px"; bodyEl.style.height=(maxR*RH)+"px";   // hug content height so trailing space is uniform
+      bodyEl.style.width=bw+"px"; bodyEl.style.height=yy+"px";   // provisional; hug pass below tightens it
       nodes.forEach(function(n){ n.style.left=(parseFloat(n.style.left)+offX)+"px"; bodyEl.appendChild(n); });
       (block.dividers||[]).forEach(function(d){ var dv=makeDividerEl(d); dv.style.left=(parseFloat(dv.style.left||0)+offX)+"px"; bodyEl.appendChild(dv); });
       card.appendChild(bodyEl); canvas.appendChild(card);
@@ -340,15 +404,59 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
       if(!bf || block.y<bf.y) state.bandFirst[sec]={y:block.y, card:card};
     });
     wrap.appendChild(canvas); main.appendChild(wrap);
-    // Fill trapped vertical gaps: extend each block's panel down to a uniform
-    // gutter above the nearest block below it; bottom-of-column blocks hug content.
-    var GUT=8;
+    // Equalise each block's bottom margin to its top margin (the header gap): hug
+    // the body to its real control-content bottom + BMAR. Guarded so dividers
+    // are never clipped.
+    var BMAR=6;   // bottom margin below the last value/picker, tuned so the gap to
+                  // the block edge matches the header→label-text gap at top (labels
+                  // are bottom-aligned in their box, so the top gap is ~10px)
     stretch.forEach(function(A){
-      var al=A.card.offsetLeft, ar=al+A.card.offsetWidth, ab=A.card.offsetTop+A.card.offsetHeight, below=Infinity;
-      stretch.forEach(function(B){ if(B===A) return;
-        var bl=B.card.offsetLeft, br=bl+B.card.offsetWidth, bt=B.card.offsetTop;
+      var cb=0, db=0, kids=A.body.children;
+      for(var i=0;i<kids.length;i++){ var e=kids[i], b=e.offsetTop+e.offsetHeight;
+        if(e.className&&e.className.indexOf("divider")>=0){ if(b>db)db=b; } else if(b>cb)cb=b; }
+      if(cb>0) A.body.style.height=Math.max(cb+BMAR, db)+"px";
+    });
+    // Gravity compaction: pull each block straight up until it rests GUT below the
+    // lowest already-placed block overlapping its column. Removes the inter-row
+    // gaps so every block hugs (bottom margin == top margin) with no trapped
+    // canvas pockets — and no panel-stretching needed. Columns/x are untouched.
+    var GUT=5;   // vertical gap between stacked blocks (and above/below fillers)
+    function pack(){
+      var placed=[];
+      stretch.map(function(s){return s.card;})
+        .sort(function(a,b){ return a.offsetTop-b.offsetTop; })
+        .forEach(function(card){
+          var al=card.offsetLeft, ar=al+card.offsetWidth, top=0;
+          placed.forEach(function(p){ if(p.l<ar-2 && al<p.r-2 && p.b+GUT>top) top=p.b+GUT; });
+          card.style.top=top+"px";
+          placed.push({l:al, r:ar, b:top+card.offsetHeight});
+        });
+    }
+    pack();
+    // Discrete block-size tweaks: extend a block's panel downward so its bottom
+    // lines up with a sibling's bottom (params stay put — only the panel grows).
+    var MATCH_BOTTOM={ "Mixer":"Common", "Filter 1":"Filter Routing", "Filter 2":"Filter Routing" };
+    var byTitle={};
+    stretch.forEach(function(s){ var t=s.card.querySelector(".bhead .t"); if(t) byTitle[t.textContent]=s; });
+    Object.keys(MATCH_BOTTOM).forEach(function(name){
+      var a=byTitle[name], b=byTitle[MATCH_BOTTOM[name]]; if(!a||!b) return;
+      var add=(b.card.offsetTop+b.card.offsetHeight)-(a.card.offsetTop+a.card.offsetHeight);
+      if(add>0) a.body.style.height=(a.body.offsetHeight+add)+"px";
+    });
+    pack();   // re-pack so the MATCH height changes propagate with uniform GUT gaps
+    // Fill trapped vertical gaps below short blocks with headerless filler panels:
+    // same column width as the block above, with a GUT gap above and below so the
+    // spacing matches everywhere else.
+    stretch.forEach(function(A){
+      var ac=A.card, al=ac.offsetLeft, aw=ac.offsetWidth, ar=al+aw, ab=ac.offsetTop+ac.offsetHeight, below=Infinity;
+      stretch.forEach(function(B){ if(B===A) return; var bc=B.card, bl=bc.offsetLeft, br=bl+bc.offsetWidth, bt=bc.offsetTop;
         if(bl<ar-2 && al<br-2 && bt>=ab-2 && bt<below) below=bt; });
-      if(below!==Infinity){ var add=(below-GUT)-ab; if(add>0) A.body.style.height=(A.body.offsetHeight+add)+"px"; }
+      if(below===Infinity) return;
+      var h=(below-GUT)-(ab+GUT);
+      if(h<=2) return;                                   // only genuine trapped gaps
+      var f=el("div","block filler"); f.style.boxSizing="border-box";
+      f.style.left=al+"px"; f.style.top=(ab+GUT)+"px"; f.style.width=aw+"px"; f.style.height=h+"px";
+      canvas.appendChild(f);
     });
     BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
       var t=el("div","tab",b.label); t.id="tab"+i;
@@ -387,7 +495,8 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     if(!state.canvas) return;
     var avail=document.getElementById("main").clientWidth-2;
     var z=parseFloat((document.getElementById("zoom")||{}).value)||1;   // header zoom slider
-    var S=avail/(state.designW||DESIGN_W)*z;
+    var target=Math.min(avail, TARGET_W);   // match OB-Xd width; never exceed the iframe (no clip on narrow)
+    var S=target/(state.designW||DESIGN_W)*z;
     state.canvas.style.transform="scale("+S+")";
     state.wrap.style.width=(state.designW*S)+"px";   // so >100% zoom scrolls horizontally
     state.wrap.style.height=(state.designH*S)+"px";
