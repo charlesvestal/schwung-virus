@@ -437,7 +437,10 @@ static const virus_param_t g_params[] = {
     {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
 
     /* Page A: Delay / Reverb */
-    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_ALL, OPTS(opts_delay_reverb_mode)},
+    /* Dly/Rev Mode (reverb + delay-pattern selector) is a Virus B/C feature; the
+     * Virus A has no reverb and no mode selector (byte 112 is unused on A). Gate to
+     * B/C so it isn't exposed as a bogus control when running a Virus A ROM. */
+    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_BC,  OPTS(opts_delay_reverb_mode)},
     {"effect_send",          "Effect Send",      VIRUS_PAGE_A,113, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"delay_time",           "Delay Time",       VIRUS_PAGE_A,114, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"delay_feedback",       "Delay Fdbk",       VIRUS_PAGE_A,115, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -708,6 +711,15 @@ static int model_name_to_level(const char *name) {
 static bool param_available_for_model(const virus_param_t *p, const char *model_name) {
     int level = model_name_to_level(model_name);
     return p->model_min <= level;
+}
+
+/* Display name, adjusted for model. Some FX param labels are dual-purpose on B/C
+ * (delay rate / reverb decay) but the Virus A has only the delay, so drop the
+ * reverb wording on A. */
+static const char *param_display_name(const virus_param_t *p, int model_level) {
+    if (model_level < VIRUS_MODEL_BC && strcmp(p->key, "delay_rate_rev_decay") == 0)
+        return "Delay Rate";
+    return p->name;
 }
 
 static uint8_t bank_index_to_midi_lsb(int bank_index, int bank_count) {
@@ -2211,11 +2223,16 @@ static int build_ui_hierarchy(char *buf, int buf_len, const char *model_name) {
     H_PARAM("chorus_delay", "Chorus Delay");
     H_PARAM("chorus_feedback", "Chorus Fdbk");
     H_PARAM("chorus_lfo_shape", "Chorus LFO");
-    H_PARAM("delay_reverb_mode", "Dly/Rev Mode");
+    /* Dly/Rev Mode exists only on Virus B/C (the A has no reverb / mode selector). */
+    if (model_level >= VIRUS_MODEL_BC)
+        H_PARAM("delay_reverb_mode", "Dly/Rev Mode");
     H_PARAM("effect_send", "Effect Send");
     H_PARAM("delay_time", "Delay Time");
     H_PARAM("delay_feedback", "Delay Fdbk");
-    H_PARAM("delay_rate_rev_decay", "Rate/Decay");
+    if (model_level >= VIRUS_MODEL_BC)
+        H_PARAM("delay_rate_rev_decay", "Rate/Decay");
+    else
+        H_PARAM("delay_rate_rev_decay", "Delay Rate");
     H_PARAM("delay_depth", "Delay Depth");
     H_PARAM("delay_lfo_shape", "Delay LFO");
     H_PARAM("delay_color", "Delay Color");
@@ -2447,16 +2464,18 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         off += snprintf(buf+off, buf_len-off, "]},"
             "{\"key\":\"dsp_clock\",\"name\":\"DSP Clock %%\",\"type\":\"int\",\"min\":10,\"max\":100,\"step\":5},"
             "{\"key\":\"gain\",\"name\":\"Gain %%\",\"type\":\"int\",\"min\":1,\"max\":100}");
+        int dlevel = model_name_to_level((const char*)shm->rom_model_name);
         for (int i = 0; i < NUM_PARAMS && off < buf_len - 200; i++) {
             if (!param_available_for_model(&g_params[i], (const char*)shm->rom_model_name))
                 continue;
+            const char *pname = param_display_name(&g_params[i], dlevel);
             if (g_params[i].options && g_params[i].num_options > 0) {
                 int n = g_params[i].num_options;
                 int range = g_params[i].max_val - g_params[i].min_val + 1;
                 if (range < n) n = range;
                 off += snprintf(buf+off, buf_len-off,
                     ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"enum\",\"options\":[",
-                    g_params[i].key, g_params[i].name);
+                    g_params[i].key, pname);
                 for (int j = 0; j < n && off < buf_len - 50; j++) {
                     if (j > 0) off += snprintf(buf+off, buf_len-off, ",");
                     off += snprintf(buf+off, buf_len-off, "\"%s\"", g_params[i].options[j]);
@@ -2465,7 +2484,7 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             } else {
                 off += snprintf(buf+off, buf_len-off,
                     ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d}",
-                    g_params[i].key, g_params[i].name, g_params[i].min_val, g_params[i].max_val);
+                    g_params[i].key, pname, g_params[i].min_val, g_params[i].max_val);
             }
         }
         off += snprintf(buf+off, buf_len-off, "]");
