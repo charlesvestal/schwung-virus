@@ -652,6 +652,23 @@ struct virus_shm_t {
         volatile uint8_t value;
         volatile uint8_t dirty;
     } pending_params[256];           /* index = page*128 + cc */
+
+    /* --- Self-contained single capture/inject (state portability) ----------
+     * current_single: child dumps the live EditBuffer (512-byte single) here so
+     * the parent can embed the ACTUAL patch in saved state — survives bank/
+     * preset renumbering and deletion. pending_single: parent stages a raw
+     * single for the child to writeSingle() straight into the EditBuffer on
+     * recall, bypassing the fragile bank/preset reference entirely. */
+    volatile uint8_t current_single[512];     /* child keeps this continuously fresh */
+    volatile int current_single_valid;
+    volatile uint8_t pending_single[512];
+    volatile uint32_t pending_single_req_gen; /* parent bumps to inject pending_single */
+    volatile uint32_t pending_single_done_gen;/* child sets = req after writing */
+
+    /* Actual preset count of the current bank (child writes on bank change).
+     * User banks can hold fewer than the global preset_count; the UI/clamps use
+     * this so you can't select a nonexistent preset (which silently failed). */
+    volatile int cur_bank_preset_count;
 };
 
 /* =====================================================================
@@ -1009,6 +1026,55 @@ static void child_drain_pending_params(virus_shm_t *shm,
     }
 }
 
+/* Actual number of presets in a bank. User banks may hold fewer than the global
+ * ROM preset_count. Child-side: g_user_banks lives in the forked child. */
+static int bank_preset_count(virus_shm_t *shm, int bank) {
+    if (bank >= g_rom_bank_count && g_user_bank_count > 0) {
+        int ub = bank - g_rom_bank_count;
+        if (ub >= 0 && ub < g_user_bank_count) return g_user_banks[ub].preset_count;
+    }
+    return shm ? shm->preset_count : 0;
+}
+
+/* Self-contained single I/O (state portability). Parent stages a raw single to
+ * inject (recall that doesn't depend on bank/preset indices) and/or requests a
+ * dump of the live EditBuffer for state save. requestSingle(EditBuffer) is
+ * synchronous (returns m_singleEditBuffer), so this captures the true current
+ * sound including live param edits. */
+static void child_handle_single_io(virus_shm_t *shm,
+                                    virusLib::Microcontroller *mc,
+                                    virusLib::ROMFile *rom) {
+    if (!shm || !mc) return;
+
+    /* Inject: write a staged single straight into the EditBuffer. */
+    if (shm->pending_single_req_gen != shm->pending_single_done_gen) {
+        uint32_t req = shm->pending_single_req_gen;
+        virusLib::ROMFile::TPreset single{};
+        for (int i = 0; i < 512; i++) single[i] = shm->pending_single[i];
+        mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
+        child_sync_params_from_preset(shm, single);
+        for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+        shm->current_single_valid = 1;
+        child_update_preset_name(shm, mc, rom);
+        __sync_synchronize();
+        shm->pending_single_done_gen = req;
+    }
+
+    /* Keep current_single near-fresh so a state read never has to block on a
+     * dump. Throttled — requestSingle(EditBuffer) is a cheap copy but we don't
+     * need it every block; every 8 loop iterations is well under any state-read
+     * cadence (autosave ~10s, saves are user-paced). */
+    static int refresh_ctr = 0;
+    if (++refresh_ctr >= 8) {
+        refresh_ctr = 0;
+        virusLib::ROMFile::TPreset single{};
+        if (mc->requestSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single)) {
+            for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+            shm->current_single_valid = 1;
+        }
+    }
+}
+
 static void child_process_midi_fifo(virus_shm_t *shm,
                                     virusLib::Microcontroller *mc,
                                     virusLib::ROMFile *rom,
@@ -1047,7 +1113,13 @@ static void child_process_midi_fifo(virus_shm_t *shm,
         const int change_mask = apply_program_selection_midi(msg, len, shm->bank_count, shm->preset_count, &bank, &preset);
         if (change_mask != PROGRAM_SELECTION_NONE) {
             shm->current_bank = bank;
+            /* Bound the preset to the bank's ACTUAL count — user banks can hold
+             * fewer than the global preset_count, and an out-of-range index was
+             * silently failing to load (leaving the old sound stuck). */
+            int pc_in_bank = bank_preset_count(shm, bank);
+            if (pc_in_bank > 0 && preset >= pc_in_bank) preset = pc_in_bank - 1;
             shm->current_preset = preset;
+            shm->cur_bank_preset_count = pc_in_bank;
             if ((change_mask & PROGRAM_SELECTION_BANK_CHANGED) != 0) {
                 if (bank < g_rom_bank_count)
                     snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + bank);
@@ -1065,9 +1137,23 @@ static void child_process_midi_fifo(virus_shm_t *shm,
             /* Load from the same source we use for the browser cache so names
              * and audible patch content stay in lockstep. */
             virusLib::ROMFile::TPreset single{};
-            if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single)) {
+            bool loaded = child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single);
+            if (!loaded && shm->current_preset != 0) {
+                /* Don't silently leave the old patch stuck: fall back to preset
+                 * 0 of this bank so a Program Change always lands somewhere. */
+                vlog("[child] preset %d not found in bank %d (count %d); falling back to 0",
+                     shm->current_preset, shm->current_bank, shm->cur_bank_preset_count);
+                shm->current_preset = 0;
+                loaded = child_get_single_preset(mc, rom, shm->current_bank, 0, &single);
+            }
+            if (loaded) {
                 mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
                 child_sync_params_from_preset(shm, single);
+                for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+                shm->current_single_valid = 1;
+            } else {
+                vlog("[child] WARNING: program change could not load bank %d preset %d",
+                     shm->current_bank, shm->current_preset);
             }
             child_update_preset_name(shm, mc, rom);
             /* Confirm the preset-load sync so a remote-UI state re-read can
@@ -1421,6 +1507,7 @@ static void child_main(virus_shm_t *shm) {
         mc, rom, (int)virusLib::ROMFile::getRomBankCount(rom->getModel()));
     g_rom_bank_count = shm->bank_count;
     shm->preset_count = rom->getPresetsPerBank();
+    shm->cur_bank_preset_count = shm->preset_count;  /* updated per bank on change */
 
     /* 8b. Load user preset banks from banks/ directory */
     {
@@ -1495,6 +1582,9 @@ static void child_main(virus_shm_t *shm) {
             /* Process incoming MIDI from parent */
             child_process_midi_fifo(shm, mc, rom);
             child_drain_pending_params(shm, mc);
+            /* Self-contained single dump/inject (after drain so a dump reflects
+             * the latest param edits in the EditBuffer). */
+            child_handle_single_io(shm, mc, rom);
 
             /* Throttle: don't let ring fill beyond target (keeps latency low) */
             if (shm_ring_available(shm) >= RING_TARGET_FILL) {
@@ -1839,6 +1929,31 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
     midi_fifo_push(inst->shm, modified, n);
 }
 
+static int hex_nibble(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+/* Decode a "key":"<hex>" string field into out[] (up to out_len bytes).
+ * Returns bytes decoded, or -1 if the key is absent. */
+static int json_get_hex(const char *json, const char *key, uint8_t *out, int out_len) {
+    char search[64];
+    snprintf(search, sizeof(search), "\"%s\":\"", key);
+    const char *p = strstr(json, search);
+    if (!p) return -1;
+    p += strlen(search);
+    int n = 0;
+    while (n < out_len && p[0] && p[0] != '"' && p[1] && p[1] != '"') {
+        int hi = hex_nibble(p[0]), lo = hex_nibble(p[1]);
+        if (hi < 0 || lo < 0) break;
+        out[n++] = (uint8_t)((hi << 4) | lo);
+        p += 2;
+    }
+    return n;
+}
+
 static int json_get_int(const char *json, const char *key, int *out) {
     char search[64];
     snprintf(search, sizeof(search), "\"%s\":", key);
@@ -1899,6 +2014,39 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             }
         }
 
+        /* Self-contained recall: if the saved state embeds the actual single
+         * (Tier 2), write it straight into the EditBuffer and skip the fragile
+         * bank/preset reference + per-param overlay entirely. This survives
+         * bank/preset renumbering and deletion. */
+        {
+            uint8_t single_bytes[512];
+            if (json_get_hex(val, "single", single_bytes, 512) == 512) {
+                /* Keep the browser's bank/preset label roughly in sync (cosmetic;
+                 * the audible patch comes from the embedded single). */
+                if (json_get_int(val, "bank", &ival) == 0 && ival >= 0 && ival < shm->bank_count)
+                    shm->current_bank = ival;
+                if (json_get_int(val, "preset", &ival) == 0 && ival >= 0 && ival < shm->preset_count)
+                    shm->current_preset = ival;
+                for (int i = 0; i < 512; i++) shm->pending_single[i] = single_bytes[i];
+                __sync_synchronize();
+                shm->pending_single_req_gen++;
+                if (json_get_int(val, "octave_transpose", &ival) == 0) {
+                    if (ival < -4) ival = -4; if (ival > 4) ival = 4;
+                    shm->octave_transpose = ival;
+                }
+                if (json_get_int(val, "dsp_clock", &ival) == 0) {
+                    if (ival < 10) ival = 10; if (ival > 100) ival = 100;
+                    shm->dsp_clock_percent = ival;
+                }
+                if (json_get_int(val, "gain", &ival) == 0) {
+                    if (ival < 1) ival = 1; if (ival > 100) ival = 100;
+                    shm->gain_percent = ival;
+                }
+                shm_refresh_current_preset_name(shm);
+                return;
+            }
+        }
+
         bool has_preset = false;
         int preset_from_state = 0;
         if (json_get_int(val, "bank", &ival) == 0 && ival >= 0 && ival < shm->bank_count) {
@@ -1954,7 +2102,10 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     }
     if (strcmp(key, "preset") == 0) {
         int idx = atoi(val);
-        if (idx >= 0 && idx < shm->preset_count) {
+        /* Bound by the current bank's real count (user banks hold fewer than the
+         * global preset_count); the child also re-bounds + falls back. */
+        int pmax = shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count;
+        if (idx >= 0 && idx < pmax) {
             if (idx == shm->current_preset) {
                 shm_refresh_current_preset_name(shm);
                 return;
@@ -2381,7 +2532,8 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
     virus_shm_t *shm = inst->shm;
 
     if (strcmp(key, "preset") == 0) return snprintf(buf, buf_len, "%d", shm->current_preset);
-    if (strcmp(key, "preset_count") == 0) return snprintf(buf, buf_len, "%d", shm->preset_count);
+    if (strcmp(key, "preset_count") == 0) return snprintf(buf, buf_len, "%d",
+        shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count);
     if (strcmp(key, "preset_name") == 0) {
         shm_refresh_current_preset_name(shm);
         return snprintf(buf, buf_len, "%s", (const char*)shm->preset_name);
@@ -2453,6 +2605,9 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             usleep(500);
             __sync_synchronize();
         }
+        /* The embedded single (Tier 2 self-contained recall) is read from
+         * shm->current_single, which the child keeps continuously fresh — no
+         * blocking dump on this read path (autosave stays cheap). */
         int off = 0;
         off += snprintf(buf+off, buf_len-off, "{\"state_version\":%d,\"bank\":%d,\"preset\":%d,\"octave_transpose\":%d",
             VIRUS_STATE_VERSION, shm->current_bank, shm->current_preset, shm->octave_transpose);
@@ -2466,11 +2621,25 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         json_escape_into(bank_name_esc, sizeof(bank_name_esc), (const char*)shm->bank_name);
         off += snprintf(buf+off, buf_len-off,
             ",\"bank_index\":%d,\"bank_count\":%d,\"preset_count\":%d,\"patch_in_bank\":%d,\"bank_name\":\"%s\"",
-            shm->current_bank, shm->bank_count, shm->preset_count, shm->current_preset + 1, bank_name_esc);
+            shm->current_bank, shm->bank_count,
+            shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count,
+            shm->current_preset + 1, bank_name_esc);
         for (int i = 0; i < NUM_PARAMS; i++) {
             if (!is_param_seen(shm, &g_params[i])) continue;
             off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
                 g_params[i].key, get_param_value(shm, &g_params[i]));
+        }
+        /* Embed the full 512-byte single as hex so recall is self-contained
+         * (1024 chars). Only if captured and there's room. */
+        if (shm->current_single_valid && off + 1024 + 16 < buf_len) {
+            off += snprintf(buf+off, buf_len-off, ",\"single\":\"");
+            for (int i = 0; i < 512 && off + 2 < buf_len; i++) {
+                static const char hexd[] = "0123456789abcdef";
+                uint8_t b = shm->current_single[i];
+                buf[off++] = hexd[b >> 4];
+                buf[off++] = hexd[b & 0xF];
+            }
+            off += snprintf(buf+off, buf_len-off, "\"");
         }
         off += snprintf(buf+off, buf_len-off, "}");
         return off;
