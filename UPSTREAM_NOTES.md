@@ -61,11 +61,43 @@ These model-gate the FX-mode param and match the remote UI.
 
 ---
 
-## Graphical remote UI — 📤 (already upstream PR #2)
+## Graphical remote UI — 📤 (submitted upstream as lean PR #2)
 
-Hardware-style web panel; shipped upstream as a lean PR that depends on host
-remote-UI support (host PR #118). Listed here for completeness.
+Hardware-style web panel (`web_ui.html`), shipped upstream as a **lean** PR that
+depends on host remote-UI support (host PR #118). The PR is a consolidated/lean
+version; the fork-main history below is the granular set of commits behind it, so
+they show as "not in upstream/main" even though the feature is PR'd. Don't re-PR
+these individually — track them under PR #2.
 
 - `011bd6b` feat(osirus): compact remote UI + hardware-style controls
+- `9c3697c` fix(osirus): preset-follow, bank browser metadata, osc_fm_mode gating
 - `5325877` docs(osirus): add remote UI screenshot
 - `68a92fd` feat(osirus): graphical remote UI (web_ui.html)
+- `0ff880e` feat: compact the remote UI layout
+- `2aec564` fix: faster remote-UI load and self-contained jump navigation
+- `4c4d371` feat: Virus-hardware visual theme for the remote UI
+- `250c299` feat: subtle per-section color coding on remote UI blocks
+- `189de34` feat: render bipolar params centered on 0 in the remote UI
+- `e48b331` fix: deliver bank/preset browser metadata via state blob
+- `d55e96a` feat: graphical remote UI for Osirus with preset-follow fix
+
+---
+
+## Local docs / plans — ⛔ not for upstream
+
+Internal planning/analysis docs, not code; listed for completeness.
+
+- `9c36aa4` **docs(osirus): CPU-optimization opportunities + delay/reverb live-edit bug writeup**
+  — `docs/plans/2026-06-17-cpu-optimization-opportunities.md` (prioritized CPU wins
+  ported from jv880: FTZ/DAZ denormal flush, `-mcpu`/LTO/visibility, thread pin +
+  SCHED_FIFO, B/C clock dial; JIT + resampler already optimal) and
+  `2026-06-17-delay-reverb-mode-bug.md`. Note: the delay/reverb-mode issue was
+  later resolved by model-gating (Virus A simply has no reverb/mode selector — see
+  the `7ddf417`/`72b1b26` gating above), so that bug writeup is largely superseded;
+  the CPU-opt notes remain a useful backlog.
+
+---
+
+_Coverage: this file documents all non-merge fork-main commits not in
+`upstream/main` from 2026-06-16 onward. Re-check with
+`git log --no-merges upstream/main..main` and append new work here._
