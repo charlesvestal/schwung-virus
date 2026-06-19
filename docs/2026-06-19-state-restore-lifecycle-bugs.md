@@ -2,7 +2,22 @@
 
 Date: 2026-06-19
 Branch: `fix/state-restore-lifecycle`
-Status: **UNTESTED — needs device validation** (code written, not built/deployed)
+
+> **⚠️ CORRECTION (2026-06-19, after device testing).** The #15 analysis below is
+> correct and device-verified. The **#14 analysis below is WRONG** — the real root
+> cause is NOT the self-contained no-op guards. Device instrumentation showed presets
+> reach the child and `writeSingle` succeeds, but the gearmulator microcontroller's
+> `waitingForPresetReceiveConfirmation()` **latches true forever** (introduced by
+> `405aebd`: the autosave's `requestSingle(EditBuffer)` refresh calls
+> `receiveUpgradedPreset()` and races the audio thread on the shared HDI08 TX parser),
+> so every `sendPreset()` queues and never flushes. Real fix shipped in parent
+> `029b9ea` + submodule `libs/gearmulator` branch `schwung-move` (`peekSingleEditBuffer()`
+> + `process()` watchdog). The `force_next_preset/bank` flags below were kept (harmless,
+> still correct for the self-contained path) but do not fix the observed bug. Remaining:
+> initial-recall residual. See `_worklogs/schwung-virus.md` (2026-06-19 later) and memory
+> `schwung-virus-state-restore-lifecycle` for the verified account.
+
+Status (#15): **device-verified.** Status (#14): **superseded — see correction above.**
 
 Two reported bugs share one seam: the `v2_set_param("state", …)` restore path in
 `src/dsp/virus_plugin.cpp`. Saved state is applied either immediately (child
