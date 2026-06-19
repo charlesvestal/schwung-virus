@@ -825,6 +825,12 @@ struct virus_instance_t {
     char *pending_state;
     int pending_state_valid;
 
+    /* Bug #14: set after a self-contained state restore (which injects a single
+     * into the EditBuffer without a Program Change, leaving current_bank/preset
+     * naming an unloaded slot). Forces the next preset/bank selection to bypass
+     * the "already current" no-op guards so the user isn't stuck on the patch. */
+    int force_next_load;
+
     /* Per-note pressure tracking for polypressure → channel pressure.
      * The Virus only has mono aftertouch (ChanPres), so we convert
      * poly aftertouch by taking the max pressure across active notes. */
@@ -1977,6 +1983,33 @@ static void json_escape_into(char *dst, int cap, const char *src) {
     dst[n] = 0;
 }
 
+/* Bug #15: a saved DSP-clock value is only meaningful for the model it was
+ * captured on. A stale low clock (e.g. Virus B's 45) restored onto a Virus A
+ * (whose safe minimum is 100) starves A's emulated DSP -> underruns/dropouts.
+ * This applies a restored clock to shm->dsp_clock_percent ONLY if it is at or
+ * above the loaded model's safe floor; otherwise it resets to auto (0) so the
+ * child re-derives the correct per-model default. rom_model_name is populated
+ * by the child before it signals child_ready, so it is valid here (including on
+ * the post-ROM-switch state replay from v2_render_block). A clamps to [100,100]
+ * (i.e. always auto unless exactly 100); B/C honor any value >= their default. */
+static void apply_restored_dsp_clock(virus_shm_t *shm, int restored) {
+    if (restored < 10) restored = 10;
+    if (restored > 100) restored = 100;
+    int floor_pct;
+    switch (shm->rom_model_name[0]) {
+        case 'A': floor_pct = 100; break;  /* Virus A: only 100 is safe */
+        case 'B': floor_pct = 45;  break;
+        default:  floor_pct = 35;  break;  /* C and others */
+    }
+    if (restored < floor_pct) {
+        vlog("[parent] restored dsp_clock %d below model %s floor %d -> auto",
+             restored, (const char*)shm->rom_model_name, floor_pct);
+        shm->dsp_clock_percent = 0;  /* auto: child picks model default */
+    } else {
+        shm->dsp_clock_percent = restored;
+    }
+}
+
 static void v2_set_param(void *instance, const char *key, const char *val) {
     virus_instance_t *inst = (virus_instance_t*)instance;
     if (!inst || !inst->shm) return;
@@ -2001,6 +2034,13 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (json_get_int(val, "rom_index", &ival) == 0) {
             if (ival >= 0 && (shm->rom_count == 0 || ival < shm->rom_count) && ival != shm->rom_index) {
                 shm->rom_index = ival;
+                /* Bug #15: reset DSP clock to auto so the restarting child
+                 * re-derives the correct per-model default (A=100, B=45, C=35).
+                 * kill_child_and_reset preserves dsp_clock_percent, so without
+                 * this a stale clock (e.g. B's 45) from pending_state would be
+                 * re-applied verbatim onto a Virus-A child -> underruns/dropouts.
+                 * Mirrors the explicit rom_index setter (search "rom_index" below). */
+                shm->dsp_clock_percent = 0;
                 if (inst->pending_state) free(inst->pending_state);
                 inst->pending_state = strdup(val);
                 inst->pending_state_valid = 1;
@@ -2035,13 +2075,18 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                     shm->octave_transpose = ival;
                 }
                 if (json_get_int(val, "dsp_clock", &ival) == 0) {
-                    if (ival < 10) ival = 10; if (ival > 100) ival = 100;
-                    shm->dsp_clock_percent = ival;
+                    apply_restored_dsp_clock(shm, ival);  /* Bug #15: model-guarded */
                 }
                 if (json_get_int(val, "gain", &ival) == 0) {
                     if (ival < 1) ival = 1; if (ival > 100) ival = 100;
                     shm->gain_percent = ival;
                 }
+                /* Bug #14: a self-contained restore injects the saved single into
+                 * the EditBuffer but never issues a Program Change, so current_bank/
+                 * current_preset above name a ROM slot that was NOT actually loaded.
+                 * Force the next preset/bank selection to bypass the "already current"
+                 * no-op guards so the user can switch off this edit-buffer patch. */
+                inst->force_next_load = 1;
                 shm_refresh_current_preset_name(shm);
                 return;
             }
@@ -2079,8 +2124,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             shm->octave_transpose = ival;
         }
         if (json_get_int(val, "dsp_clock", &ival) == 0) {
-            if (ival < 10) ival = 10; if (ival > 100) ival = 100;
-            shm->dsp_clock_percent = ival;
+            apply_restored_dsp_clock(shm, ival);  /* Bug #15: model-guarded */
         }
         if (json_get_int(val, "gain", &ival) == 0) {
             if (ival < 1) ival = 1; if (ival > 100) ival = 100;
@@ -2106,10 +2150,13 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
          * global preset_count); the child also re-bounds + falls back. */
         int pmax = shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count;
         if (idx >= 0 && idx < pmax) {
-            if (idx == shm->current_preset) {
+            /* Bug #14: skip the "already current" no-op once after a self-contained
+             * restore, whose current_preset names a slot that was never loaded. */
+            if (idx == shm->current_preset && !inst->force_next_load) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
+            inst->force_next_load = 0;
             clear_param_overrides(shm);
             shm->current_preset = idx;
             shm->preset_req_gen++;
@@ -2123,10 +2170,13 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     if (strcmp(key, "bank_index") == 0) {
         int idx = atoi(val);
         if (idx >= 0 && idx < shm->bank_count) {
-            if (idx == shm->current_bank) {
+            /* Bug #14: skip the "already current" no-op once after a self-contained
+             * restore (see force_next_load), so a bank reselect actually reloads. */
+            if (idx == shm->current_bank && !inst->force_next_load) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
+            inst->force_next_load = 0;
             clear_param_overrides(shm);
             shm->current_bank = idx;
             shm->current_preset = 0;
