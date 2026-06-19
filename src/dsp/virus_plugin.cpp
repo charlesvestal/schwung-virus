@@ -1071,14 +1071,20 @@ static void child_handle_single_io(virus_shm_t *shm,
     }
 
     /* Keep current_single near-fresh so a state read never has to block on a
-     * dump. Throttled — requestSingle(EditBuffer) is a cheap copy but we don't
-     * need it every block; every 8 loop iterations is well under any state-read
-     * cadence (autosave ~10s, saves are user-paced). */
+     * dump. Throttled — every 8 loop iterations is well under any state-read
+     * cadence (autosave ~10s, saves are user-paced).
+     *
+     * Use peekSingleEditBuffer(), NOT requestSingle(EditBuffer): the latter calls
+     * receiveUpgradedPreset(), which mutates the shared HDI08 TX parser. Driving that
+     * from this emu-loop refresh races the audio thread feeding the same parser via
+     * m_hdi08.exec() and could permanently latch the preset-receive confirmation,
+     * stalling all subsequent preset loads (stuck patch; direct param edits still
+     * work). peekSingleEditBuffer() only copies the cached buffer under the mutex. */
     static int refresh_ctr = 0;
     if (++refresh_ctr >= 8) {
         refresh_ctr = 0;
         virusLib::ROMFile::TPreset single{};
-        if (mc->requestSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single)) {
+        if (mc->peekSingleEditBuffer(single)) {
             for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
             shm->current_single_valid = 1;
         }
