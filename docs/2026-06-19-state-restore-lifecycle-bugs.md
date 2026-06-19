@@ -133,25 +133,35 @@ matching load is a no-op → "stuck, won't change."
 
 ### Fix implemented (safe, localized part)
 
-Added a parent-side `int force_next_load;` to `virus_instance_t`
-(`virus_plugin.cpp` ~`:826`; the instance is `calloc`'d at `:1810` so it is
-zero-initialized). The self-contained restore branch sets `inst->force_next_load
-= 1;` after injecting the single. Both no-op guards now read it:
+Added two parent-side flags `int force_next_preset; int force_next_bank;` to
+`virus_instance_t` (`virus_plugin.cpp` ~`:826`; the instance is `calloc`'d at
+`:1810` so they are zero-initialized). The self-contained restore branch sets
+**both** to 1 after injecting the single. Each no-op guard reads and clears **its
+own** flag:
 
 ```c
-if (idx == shm->current_preset && !inst->force_next_load) { … return; }
-inst->force_next_load = 0;
+/* preset guard */
+if (idx == shm->current_preset && !inst->force_next_preset) { … return; }
+inst->force_next_preset = 0;
+/* bank guard */
+if (idx == shm->current_bank && !inst->force_next_bank) { … return; }
+inst->force_next_bank = 0;
 ```
-(and the analogous `current_bank` guard). The first preset/bank selection after a
-self-contained restore therefore always issues a real load; the flag self-clears.
+The first preset selection AND the first bank selection after a self-contained
+restore each issue a real load; each flag self-clears independently.
+
+**Why two flags, not one:** a single shared flag would let whichever axis the user
+touches first clear it — e.g. a same-index *bank* reselect would consume the flag
+and re-strand a subsequent same-index *preset* reselect (and vice versa). Two
+independent flags close that edge (per the advisor review, 2026-06-19).
 
 **Why a flag instead of `current_preset = -1`:** `current_preset` is a signed
 `volatile int` (`:603`), so `-1` is type-safe, **but** it leaks into several
 consumers — `get_param("preset")` returns it raw (`:2534`), `patch_in_bank`
 returns `current_preset + 1` (`:2545` → would show `0`), state save serializes it
 (`:2613`), and `shm_lookup_preset_name` uses it for name lookup (`:763-765`).
-A sentinel `-1` would produce a wrong UI/state/name read. The parent-side
-`force_next_load` flag avoids all of that and only affects the two guards.
+A sentinel `-1` would produce a wrong UI/state/name read. The parent-side flags
+avoid all of that and only affect the two guards.
 
 ---
 

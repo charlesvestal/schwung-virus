@@ -828,8 +828,12 @@ struct virus_instance_t {
     /* Bug #14: set after a self-contained state restore (which injects a single
      * into the EditBuffer without a Program Change, leaving current_bank/preset
      * naming an unloaded slot). Forces the next preset/bank selection to bypass
-     * the "already current" no-op guards so the user isn't stuck on the patch. */
-    int force_next_load;
+     * the "already current" no-op guards so the user isn't stuck on the patch.
+     * Separate flags per axis: a single shared flag would let a same-index *bank*
+     * reselect clear it and re-strand a same-index *preset* reselect (and vice
+     * versa). Each guard clears only its own flag. */
+    int force_next_preset;
+    int force_next_bank;
 
     /* Per-note pressure tracking for polypressure → channel pressure.
      * The Virus only has mono aftertouch (ChanPres), so we convert
@@ -2086,7 +2090,8 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                  * current_preset above name a ROM slot that was NOT actually loaded.
                  * Force the next preset/bank selection to bypass the "already current"
                  * no-op guards so the user can switch off this edit-buffer patch. */
-                inst->force_next_load = 1;
+                inst->force_next_preset = 1;
+                inst->force_next_bank = 1;
                 shm_refresh_current_preset_name(shm);
                 return;
             }
@@ -2152,11 +2157,11 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (idx >= 0 && idx < pmax) {
             /* Bug #14: skip the "already current" no-op once after a self-contained
              * restore, whose current_preset names a slot that was never loaded. */
-            if (idx == shm->current_preset && !inst->force_next_load) {
+            if (idx == shm->current_preset && !inst->force_next_preset) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
-            inst->force_next_load = 0;
+            inst->force_next_preset = 0;
             clear_param_overrides(shm);
             shm->current_preset = idx;
             shm->preset_req_gen++;
@@ -2171,12 +2176,12 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         int idx = atoi(val);
         if (idx >= 0 && idx < shm->bank_count) {
             /* Bug #14: skip the "already current" no-op once after a self-contained
-             * restore (see force_next_load), so a bank reselect actually reloads. */
-            if (idx == shm->current_bank && !inst->force_next_load) {
+             * restore (see force_next_bank), so a bank reselect actually reloads. */
+            if (idx == shm->current_bank && !inst->force_next_bank) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
-            inst->force_next_load = 0;
+            inst->force_next_bank = 0;
             clear_param_overrides(shm);
             shm->current_bank = idx;
             shm->current_preset = 0;
