@@ -2697,9 +2697,10 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         int off = 0;
         off += snprintf(buf+off, buf_len-off, "{\"state_version\":%d,\"bank\":%d,\"preset\":%d,\"octave_transpose\":%d",
             VIRUS_STATE_VERSION, shm->current_bank, shm->current_preset, shm->octave_transpose);
-        off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d",
+        off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d,\"rom_model\":\"%s\"",
             shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40,
-            shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index);
+            shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index,
+            shm->rom_model_name[0] ? (const char*)shm->rom_model_name : "?");
         /* Preset-browser metadata for the remote UI. getParam in the manager is
          * cache-only, so these have to ride the bulk state seed (which the host
          * also re-reads after every preset/bank change) to reach the browser. */
