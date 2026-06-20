@@ -633,7 +633,7 @@ struct virus_shm_t {
     char module_dir[256];
 
     /* DSP clock percent (parent writes, child reads and applies) */
-    volatile int dsp_clock_percent;  /* 0 = auto (100 for A, 50 for B/C) */
+    volatile int dsp_clock_percent;  /* 0 = auto (100 for A, 45 for B, 35 for C/others) */
     volatile int dsp_clock_applied;  /* last value applied by child */
     char rom_model_name[16];         /* "A", "B", "C", etc. */
 
@@ -780,6 +780,7 @@ static void midi_fifo_push(virus_shm_t *shm, const uint8_t *msg, int len) {
         shm->midi_buf[wr] = msg[i];
         wr = (wr + 1) % MIDI_FIFO_SIZE;
     }
+    __sync_synchronize();   /* publish payload before the index (ARM weak ordering) */
     shm->midi_write = wr;
 }
 
@@ -839,6 +840,19 @@ struct virus_instance_t {
      * The Virus only has mono aftertouch (ChanPres), so we convert
      * poly aftertouch by taking the max pressure across active notes. */
     uint8_t note_pressure[128];
+
+    /* The transposed note actually emitted at note-on, indexed by the ORIGINAL
+     * (untransposed) note number; -1 = not held. Note-off replays this exact value
+     * so changing octave_transpose (encoder or state restore) while a key is held
+     * can't strand the voice, and clamp collisions still release. Touched only on
+     * the host SPI thread (on_midi + set_param are serialized there). */
+    int16_t held_note[128];
+
+    /* CR-1 child-liveness watchdog state (render thread). A crashed/hung child
+     * freezes shm->child_alive while the ring drains to permanent silence; we
+     * detect a frozen heartbeat during underrun and kick a respawn. */
+    int wd_alive_last;   /* last-seen child_alive while underrunning */
+    int wd_stall;        /* consecutive underrunning renders with frozen heartbeat */
 };
 
 /* =====================================================================
@@ -1064,6 +1078,7 @@ static void child_handle_single_io(virus_shm_t *shm,
         mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
         child_sync_params_from_preset(shm, single);
         for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+        __sync_synchronize();   /* publish the 512 bytes before the valid flag */
         shm->current_single_valid = 1;
         child_update_preset_name(shm, mc, rom);
         __sync_synchronize();
@@ -1102,6 +1117,7 @@ static void child_process_midi_fifo(virus_shm_t *shm,
                                     int max_msgs = 2) {
     int processed = 0;
     while (midi_fifo_available(shm) > 0 && processed < max_msgs) {
+        __sync_synchronize();   /* acquire: read payload only after observing midi_write */
         int rd = shm->midi_read;
         int len = shm->midi_buf[rd];
         rd = (rd + 1) % MIDI_FIFO_SIZE;
@@ -1171,6 +1187,7 @@ static void child_process_midi_fifo(virus_shm_t *shm,
                 mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
                 child_sync_params_from_preset(shm, single);
                 for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+                __sync_synchronize();   /* publish the 512 bytes before the valid flag */
                 shm->current_single_valid = 1;
             } else {
                 vlog("[child] WARNING: program change could not load bank %d preset %d",
@@ -1585,6 +1602,7 @@ static void child_main(virus_shm_t *shm) {
     /* 10. Signal ready and enter emu loop */
     shm->initialized = 1;
     shm->loading_complete = 1;
+    __sync_synchronize();   /* publish prefilled ring + init before child_ready (acquire on the parent) */
     shm->child_ready = 1;
     sem_active.store(true);
     notify_timeout.store(0);
@@ -1674,6 +1692,7 @@ static void child_main(virus_shm_t *shm) {
                 shm->audio_ring[wr * 2 + 1] = resampled[i * 2 + 1];
                 wr = (wr + 1) % AUDIO_RING_SIZE;
             }
+            __sync_synchronize();   /* publish samples before the index (ARM weak ordering) */
             shm->ring_write = wr;
         }
     }
@@ -1778,6 +1797,11 @@ static void kill_child_and_reset(virus_instance_t *inst) {
     shm->prof_peak_level = 0.0f;
     shm->prof_ring_min = 0;
     shm->dsp_clock_applied = 0;
+    /* A4: drop the previous child's single. It belonged to the OLD ROM/child; leaving
+     * it valid lets a get_state in the restart window serialize stale bytes under the
+     * new rom_index and clobber a good slot file (not caught by the empty-state guard).
+     * pending_state replay re-establishes valid=1 with the new child's single. */
+    shm->current_single_valid = 0;
 }
 
 static void* boot_thread_func(void *arg) {
@@ -1836,6 +1860,7 @@ static void* v2_create_instance(const char *module_dir, const char *json_default
     }
     memset(inst->shm, 0, sizeof(virus_shm_t));
     strncpy((char*)inst->shm->module_dir, module_dir, sizeof(inst->shm->module_dir) - 1);
+    for (int i = 0; i < 128; i++) inst->held_note[i] = -1;  /* no notes held yet */
 
     /* Set default CC values (Virus Page A indices) */
     inst->shm->cc_values[40] = 127;  /* Cutoff */
@@ -1927,10 +1952,28 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
         inst->note_pressure[note] = 0;
     }
 
-    /* Apply octave transpose to notes */
+    /* Apply octave transpose to notes. A note-off must release the SAME transposed
+     * note the note-on sent — otherwise turning the Octave encoder (or a state restore
+     * that changes octave_transpose) while a key is held would compute a different
+     * note-off and strand the voice. So record the emitted note at note-on and replay
+     * it at note-off, rather than recomputing from the (possibly changed) live offset. */
     if ((status == 0x90 || status == 0x80) && len >= 2) {
-        int note = msg[1] + inst->shm->octave_transpose * 12;
-        if (note < 0) note = 0; if (note > 127) note = 127;
+        uint8_t orig = msg[1] & 0x7F;
+        bool note_off = (status == 0x80) || (status == 0x90 && len >= 3 && msg[2] == 0);
+        int note;
+        if (note_off) {
+            if (inst->held_note[orig] >= 0) {
+                note = inst->held_note[orig];
+                inst->held_note[orig] = -1;
+            } else {
+                note = orig + inst->shm->octave_transpose * 12;
+                if (note < 0) note = 0; if (note > 127) note = 127;
+            }
+        } else {
+            note = orig + inst->shm->octave_transpose * 12;
+            if (note < 0) note = 0; if (note > 127) note = 127;
+            inst->held_note[orig] = (int16_t)note;
+        }
         modified[1] = (uint8_t)note;
     }
 
@@ -2262,8 +2305,16 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         return;
     }
     if (strcmp(key, "all_notes_off") == 0) {
-        uint8_t msg[3] = { 0xB0, 123, 0 };
-        midi_fifo_push(shm, msg, 3);
+        /* CC123 (All Notes Off) alone respects the sustain pedal and won't cut notes
+         * latched under CC64 or a long release, so a real panic also releases sustain
+         * (CC64=0) and forces All Sound Off (CC120), which ignores sustain/release. */
+        uint8_t sustain_off[3] = { 0xB0, 64, 0 };
+        uint8_t all_sound_off[3] = { 0xB0, 120, 0 };
+        uint8_t all_notes_off[3] = { 0xB0, 123, 0 };
+        midi_fifo_push(shm, sustain_off, 3);
+        midi_fifo_push(shm, all_sound_off, 3);
+        midi_fifo_push(shm, all_notes_off, 3);
+        for (int i = 0; i < 128; i++) inst->held_note[i] = -1;
         return;
     }
     for (int i = 0; i < NUM_PARAMS; i++) {
@@ -2619,7 +2670,12 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
     if (strcmp(key, "bank_name") == 0) return snprintf(buf, buf_len, "%s", (const char*)shm->bank_name);
     if (strcmp(key, "patch_in_bank") == 0) return snprintf(buf, buf_len, "%d", shm->current_preset + 1);
     if (strcmp(key, "octave_transpose") == 0) return snprintf(buf, buf_len, "%d", shm->octave_transpose);
-    if (strcmp(key, "dsp_clock") == 0) return snprintf(buf, buf_len, "%d", shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : (shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : 40));
+    /* Report the user's requested override (dsp_clock_percent) first, not the
+     * lagging dsp_clock_applied. set_param writes percent; the child copies it to
+     * applied a block later. Reading applied here makes a just-set value read back
+     * stale (UI/host see the old number) -> the setting appears to "snap back".
+     * Fall back to applied (then a generic 40) only when percent==0 (auto mode). */
+    if (strcmp(key, "dsp_clock") == 0) return snprintf(buf, buf_len, "%d", shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : (shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40));
     if (strcmp(key, "rom_model") == 0) return snprintf(buf, buf_len, "%s", shm->rom_model_name[0] ? (const char*)shm->rom_model_name : "?");
     if (strcmp(key, "rom_index") == 0) {
         int idx = shm->rom_index;
@@ -2691,14 +2747,21 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             if (buf_len > 0) buf[0] = '\0';
             return 0;
         }
+        __sync_synchronize();   /* acquire: pair with the child's release before valid=1,
+                                 * so the 512 current_single bytes read below aren't torn */
         /* The embedded single (Tier 2 self-contained recall) is read from
          * shm->current_single, which the child keeps continuously fresh — no
          * blocking dump on this read path (autosave stays cheap). */
         int off = 0;
         off += snprintf(buf+off, buf_len-off, "{\"state_version\":%d,\"bank\":%d,\"preset\":%d,\"octave_transpose\":%d",
             VIRUS_STATE_VERSION, shm->current_bank, shm->current_preset, shm->octave_transpose);
+        /* Persist the user's requested override (dsp_clock_percent), not the
+         * lagging dsp_clock_applied -- otherwise an autosave taken right after a
+         * change captures the stale applied value and the subsequent state restore
+         * clobbers the new setting (the value "doesn't stick"). Falls back to
+         * applied (then 40) only in auto mode (percent==0). */
         off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d,\"rom_model\":\"%s\"",
-            shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40,
+            shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : (shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40),
             shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index,
             shm->rom_model_name[0] ? (const char*)shm->rom_model_name : "?");
         /* Preset-browser metadata for the remote UI. getParam in the manager is
@@ -2727,12 +2790,17 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             }
             off += snprintf(buf+off, buf_len-off, "\"");
         }
-        for (int i = 0; i < NUM_PARAMS; i++) {
+        /* Guard the remaining length: snprintf returns the would-be length, so an
+         * unguarded off can pass buf_len and make buf_len-off a huge size_t (OOB).
+         * The single (written first) is what recall needs; truncating the param tail
+         * is acceptable. Matches the chain_params loop's off<buf_len discipline. */
+        for (int i = 0; i < NUM_PARAMS && off < buf_len - 64; i++) {
             if (!is_param_seen(shm, &g_params[i])) continue;
             off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
                 g_params[i].key, get_param_value(shm, &g_params[i]));
         }
-        off += snprintf(buf+off, buf_len-off, "}");
+        if (off < buf_len - 1)
+            off += snprintf(buf+off, buf_len-off, "}");
         return off;
     }
     if (strcmp(key, "ui_hierarchy") == 0) {
@@ -2790,6 +2858,12 @@ static int v2_get_error(void *instance, char *buf, int buf_len) {
     return snprintf(buf, buf_len, "%s", (const char*)inst->shm->load_error);
 }
 
+/* CR-1: consecutive underrunning render blocks with a FROZEN child heartbeat before
+ * we declare the child dead/hung and respawn. ~hundreds of blocks ≈ ~1s; long enough
+ * that a transient underrun (where the child is alive and child_alive still advances)
+ * never trips it, short enough to recover audio promptly. */
+#define WD_STALL_RESPAWN 400
+
 static void v2_render_block(void *instance, int16_t *out, int frames) {
     virus_instance_t *inst = (virus_instance_t*)instance;
     if (!inst || !inst->shm || !inst->shm->loading_complete || !inst->shm->child_ready) {
@@ -2813,6 +2887,7 @@ static void v2_render_block(void *instance, int16_t *out, int frames) {
     if (shm->prof_ring_min == 0 || avail < shm->prof_ring_min)
         shm->prof_ring_min = avail;
     int to_read = (avail < frames) ? avail : frames;
+    __sync_synchronize();   /* acquire: pair with the child's release before ring_write */
     int rd = shm->ring_read;
     for (int i = 0; i < to_read; i++) {
         out[i*2+0] = shm->audio_ring[rd*2+0];
@@ -2826,6 +2901,35 @@ static void v2_render_block(void *instance, int16_t *out, int frames) {
         memset(out + to_read * 2, 0, (frames - to_read) * 2 * sizeof(int16_t));
     }
     shm->render_count++;
+
+    /* CR-1: child-liveness watchdog. A crashed/hung child stops advancing child_alive
+     * while the ring drains, after which this path would memset silence forever with no
+     * recovery. Detect a frozen heartbeat DURING underrun (a healthy-but-CPU-starved
+     * child keeps advancing child_alive, so it can't false-trip) and kick the existing
+     * restart path off the audio thread to reap + respawn with the preserved config. */
+    if (to_read < frames) {
+        int a = shm->child_alive;
+        if (a == inst->wd_alive_last) {
+            if (++inst->wd_stall >= WD_STALL_RESPAWN && !inst->boot_thread_running) {
+                inst->wd_stall = 0;
+                snprintf((char*)shm->load_error, sizeof(shm->load_error),
+                         "DSP child stalled — restarting");
+                vlog("[parent] watchdog: child heartbeat frozen, respawning");
+                inst->boot_thread_running = 1;
+                pthread_t t;
+                if (pthread_create(&t, nullptr, restart_thread_func, inst) == 0)
+                    pthread_detach(t);
+                else
+                    inst->boot_thread_running = 0;
+            }
+        } else {
+            inst->wd_alive_last = a;
+            inst->wd_stall = 0;
+        }
+    } else {
+        inst->wd_alive_last = shm->child_alive;
+        inst->wd_stall = 0;
+    }
 }
 
 /* =====================================================================
