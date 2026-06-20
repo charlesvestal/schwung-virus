@@ -1081,12 +1081,17 @@ static void child_handle_single_io(virus_shm_t *shm,
      * stalling all subsequent preset loads (stuck patch; direct param edits still
      * work). peekSingleEditBuffer() only copies the cached buffer under the mutex. */
     static int refresh_ctr = 0;
-    if (++refresh_ctr >= 8) {
+    if (++refresh_ctr >= 8 && shm->current_single_valid) {
+        /* Only refresh an ALREADY-loaded patch (capture live param edits). Do NOT let
+         * the passive refresh set current_single_valid from scratch: at boot the child
+         * loads the default preset, and a refresh that flipped valid=1 would let an
+         * autosave persist the DEFAULT single and clobber the real patch's slot file
+         * before the restore inject runs. valid is set only by a real load (Program
+         * Change in child_process_midi_fifo) or a self-contained restore inject above. */
         refresh_ctr = 0;
         virusLib::ROMFile::TPreset single{};
         if (mc->peekSingleEditBuffer(single)) {
             for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
-            shm->current_single_valid = 1;
         }
     }
 }
@@ -1956,10 +1961,19 @@ static int hex_nibble(char c) {
  * Returns bytes decoded, or -1 if the key is absent. */
 static int json_get_hex(const char *json, const char *key, uint8_t *out, int out_len) {
     char search[64];
-    snprintf(search, sizeof(search), "\"%s\":\"", key);
+    /* Match only "key": — NOT "key":" — then skip whitespace before the opening
+     * quote. The host round-trips slot state through a JSON pretty-printer that emits
+     * a space after the colon ("single": "..."), so a hard-coded "key":" never matched
+     * and the embedded single was silently dropped, forcing the fragile reference
+     * recall (wrong/weird sound after a set reload). json_get_int already tolerates
+     * this whitespace; json_get_hex now matches. */
+    snprintf(search, sizeof(search), "\"%s\":", key);
     const char *p = strstr(json, search);
     if (!p) return -1;
     p += strlen(search);
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    if (*p != '"') return -1;
+    p++;
     int n = 0;
     while (n < out_len && p[0] && p[0] != '"' && p[1] && p[1] != '"') {
         int hi = hex_nibble(p[0]), lo = hex_nibble(p[1]);
@@ -2666,6 +2680,17 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             usleep(500);
             __sync_synchronize();
         }
+        /* If no faithful single has been captured yet (fresh child before any patch
+         * load, or a just-reset shm), return EMPTY rather than a single-less reference
+         * state. The host's autosave preserves the existing good slot_N.json on an empty
+         * read (bailIfEmpty in shadow_ui.js buildSlotPatchJson), so a transient no-single
+         * window can't clobber a faithful self-contained save with a single-less one.
+         * current_single_valid is set only by a real preset load (Program Change) or a
+         * self-contained restore inject, never by the passive boot-default. */
+        if (!shm->current_single_valid) {
+            if (buf_len > 0) buf[0] = '\0';
+            return 0;
+        }
         /* The embedded single (Tier 2 self-contained recall) is read from
          * shm->current_single, which the child keeps continuously fresh — no
          * blocking dump on this read path (autosave stays cheap). */
@@ -2685,13 +2710,12 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             shm->current_bank, shm->bank_count,
             shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count,
             shm->current_preset + 1, bank_name_esc);
-        for (int i = 0; i < NUM_PARAMS; i++) {
-            if (!is_param_seen(shm, &g_params[i])) continue;
-            off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
-                g_params[i].key, get_param_value(shm, &g_params[i]));
-        }
-        /* Embed the full 512-byte single as hex so recall is self-contained
-         * (1024 chars). Only if captured and there's room. */
+        /* Embed the full 512-byte single as hex (1024 chars) BEFORE the ~185 params.
+         * Ordering matters: the host stores the slot state through a fixed buffer that
+         * is smaller than header+single+params, so whatever is serialized LAST gets
+         * truncated away. Recall only needs the single (self-contained Tier-2 path); the
+         * per-param block is just a remote-UI seed and tolerates truncation. Writing the
+         * single first guarantees a faithful patch recall even when the tail is cut. */
         if (shm->current_single_valid && off + 1024 + 16 < buf_len) {
             off += snprintf(buf+off, buf_len-off, ",\"single\":\"");
             for (int i = 0; i < 512 && off + 2 < buf_len; i++) {
@@ -2701,6 +2725,11 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
                 buf[off++] = hexd[b & 0xF];
             }
             off += snprintf(buf+off, buf_len-off, "\"");
+        }
+        for (int i = 0; i < NUM_PARAMS; i++) {
+            if (!is_param_seen(shm, &g_params[i])) continue;
+            off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
+                g_params[i].key, get_param_value(shm, &g_params[i]));
         }
         off += snprintf(buf+off, buf_len-off, "}");
         return off;
