@@ -5,160 +5,199 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Osirus Editor</title>
 <style>
-  /* Access Virus cue: graphite metal panel, wooden end-cheeks, black/red LCD
-     header, red knob pointers + LED accents. Blocks are absolute-positioned per
-     the custom layout (tools/osiruslayout.json) and the whole canvas is scaled
-     to the iframe width. */
-  :root{
-    --metal1:#41454b; --metal2:#33363b; --metal3:#2a2c30;
-    --recess:#212327; --recess2:#191b1e; --edge:#15161a; --hair:rgba(255,255,255,.05);
-    --ink:#eceef1; --dim:#9b9fa6; --label:#c6c9cf;
-    --red:#d8362b; --red2:#ff5347; --knob1:#2c2e33; --knob2:#0c0d10; --track:#16181b; --r:5px;
-  }
   *{box-sizing:border-box}
-  html,body{margin:0;height:100%}
-  body{background:#000;color:var(--ink);
-    font:12px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    -webkit-font-smoothing:antialiased;-webkit-user-select:none;user-select:none}
-  body::before,body::after{content:"";position:fixed;top:0;bottom:0;width:13px;z-index:40;pointer-events:none}
-  body::before{left:0;background:linear-gradient(90deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
-  body::after{right:0;background:linear-gradient(270deg,#1c1208,#8a5a2e 45%,#5e3c1c)}
-  #app{min-height:100%;margin:0 13px;
-    background:linear-gradient(180deg,#0b0b0c,#070708);
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,.6)}
-  .hidden{display:none!important}
+  html,body{margin:0}
+  :root{
+    --bg:#16110f; --surf:#7a201a; --surf2:#9a2a22; --line:rgba(0,0,0,.32);
+    --ink:#fdf3ef; --mut:#eab9b0; --acc:#f5a623; --acc2:#ff7044; --led:#ffc01f; --track:rgba(255,255,255,.13);
+    --val:#f6e2db; --skirt:rgba(255,235,225,.40); --ptr:#ffffff; --cap1:#57392e; --cap2:#0b0503; --gloss:rgba(255,238,214,.24);
+    --chrome:#1a1411; --chromeink:#fbeee8; --chromemut:#b29a91;
+    --cheek1:#7c2018; --cheek2:#3d0f0a; --lcdbg:linear-gradient(180deg,#9ece4d,#80b438); --lcdink:#16280b; --lcdframe:#37460e;
+    --wellbd:#000; --wellring:0 0 0 1px rgba(0,0,0,0);
+  }
+  html{background:var(--bg)}
+  body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+    -webkit-user-select:none;user-select:none;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,#fff 2%),var(--bg) 40%),var(--bg)}
+  body::before,body::after{content:"";position:fixed;top:0;bottom:0;width:13px;z-index:70;pointer-events:none}
+  body::before{left:0;background:linear-gradient(90deg,var(--cheek2),var(--cheek1) 45%,var(--cheek2))}
+  body::after{right:0;background:linear-gradient(270deg,var(--cheek2),var(--cheek1) 45%,var(--cheek2))}
+  .mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,monospace}
 
-  /* header */
-  .topbar{position:sticky;top:0;z-index:30}
-  header{position:relative;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;
-    padding:4px 10px;background:linear-gradient(180deg,#101113,#0a0b0c);border-bottom:1px solid #000}
-  .brand{font-weight:800;letter-spacing:2.5px;color:var(--red);font-size:14px;text-shadow:0 0 10px rgba(216,54,43,.4)}
-  .brand small{color:#6a6d73;font-weight:600;letter-spacing:.5px;font-size:9px;margin-left:5px}
-  .badge{font-size:10px;font-weight:800;color:#1a0c0a;background:var(--red);border-radius:3px;padding:2px 7px;box-shadow:0 0 8px rgba(216,54,43,.5)}
-  /* bright yellow-green character-LCD (Crystalfontz/Virus style) */
-  .lcd{display:flex;align-items:center;gap:6px;border:1px solid #4a5810;border-radius:4px;padding:4px 8px;
-    background:repeating-linear-gradient(0deg,rgba(0,0,0,.05) 0 1px,transparent 1px 2px),repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0 1px,transparent 1px 2px),linear-gradient(180deg,#c4dc36,#a9c521);
-    box-shadow:inset 0 0 10px rgba(60,80,8,.4),inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 rgba(255,255,255,.05)}
-  .lcd .name{min-width:140px;max-width:220px;text-align:center;color:#172207;font-weight:700;
-    font-family:"SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(255,255,255,.2)}
-  .lcd .idx{font-variant-numeric:tabular-nums;color:#243405;min-width:52px;text-align:center;font-size:11px;font-family:"SF Mono",ui-monospace,Menlo,monospace}
-  .lcd .bank{color:#243405;font-size:10px;letter-spacing:.5px;min-width:58px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:"SF Mono",ui-monospace,Menlo,monospace;font-weight:700}
-  .lcd button.nav{background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.08));border:1px solid rgba(40,50,8,.45);color:#1d2a06;box-shadow:none}
-  .lcd button.nav:hover{border-color:#3a4808;color:#000}
-  .grp{display:flex;align-items:center;gap:5px}
-  .hl{font-size:9px;text-transform:uppercase;letter-spacing:.8px;color:#6a6d73}
-  .zoomgrp .hl{font-size:14px;letter-spacing:0;color:#8a8d93}
-  .zoomgrp{gap:3px}
-  #zoom{width:90px;height:14px}
-  button.nav{background:linear-gradient(180deg,#2b2d31,#1a1c1f);border:1px solid #000;color:var(--ink);
-    border-radius:4px;padding:4px 9px;cursor:pointer;font-size:13px;box-shadow:0 1px 0 rgba(255,255,255,.06)}
-  button.nav:hover{border-color:var(--red);color:#fff}
-  button.nav:active{background:#141517}
-  #status{font-size:10px;color:#6a6d73;display:flex;align-items:center;gap:5px}
-  #dot{width:8px;height:8px;border-radius:50%;background:#3a1411}
-  #dot.ok{background:var(--red2);box-shadow:0 0 7px rgba(255,83,71,.8)} #dot.err{background:#ffd23a}
+  /* top bar */
+  .top{position:sticky;top:0;z-index:60;background:var(--chrome);border-bottom:1px solid rgba(0,0,0,.18);backdrop-filter:blur(9px)}
+  .topin{max-width:980px;margin:0 auto;display:flex;align-items:center;gap:16px;height:54px;padding:0 26px}
+  .brand{display:flex;align-items:baseline;gap:7px;flex:none}
+  .brand b{font-size:15px;font-weight:800;letter-spacing:4px;color:var(--chromeink)}
+  .brand b i{font-style:normal;color:var(--acc)}
+  .brand .mn{font-size:8px;font-weight:700;letter-spacing:1.6px;color:var(--chromemut);text-transform:uppercase;white-space:nowrap}
+  .seg{display:flex;gap:2px;background:var(--surf);border:1px solid rgba(0,0,0,.28);border-radius:9px;padding:3px;flex:none}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--mut);font-family:inherit;font-weight:700;font-size:11.5px;
+    letter-spacing:1px;padding:5px 12px;border-radius:6px;cursor:pointer}
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{color:#fff;background:var(--acc);box-shadow:0 1px 8px color-mix(in srgb,var(--acc) 40%,transparent)}
+  .pr{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:0 4px}
+  .pr .dot{width:7px;height:7px;border-radius:50%;background:var(--led);box-shadow:0 0 9px var(--led);flex:none}
+  .lcd{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:32px;padding:0 12px;border-radius:6px;
+    background:var(--lcdbg);border:1px solid var(--lcdframe);box-shadow:inset 0 1px 5px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
+    font-family:ui-monospace,Menlo,monospace}
+  .lcd .pn{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--lcdink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.3px}
+  .lcd .pm{font-size:10px;color:var(--lcdink);opacity:.82;white-space:nowrap;letter-spacing:.5px}
+  .pr .hb{appearance:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--mut);width:23px;height:23px;border-radius:6px;cursor:pointer;font-size:12px;line-height:1;flex:none}
+  .pr .hb:hover{color:var(--ink)}
+  .oct{display:flex;align-items:center;gap:6px;flex:none}
+  .oct .l{font-size:9px;letter-spacing:1.4px;color:var(--chromemut);text-transform:uppercase}
+  .oct .hb{appearance:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--mut);width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1}
+  .oct .hb:hover{color:var(--ink)}
+  .oct .ov{font-size:12px;min-width:16px;text-align:center;color:var(--chromeink)}
+  .sync{display:flex;align-items:center;gap:7px;flex:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--ink);
+    border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit;font-weight:700;font-size:10px;letter-spacing:1.3px;text-transform:uppercase}
+  .sync .d{width:6px;height:6px;border-radius:50%;background:var(--led);box-shadow:0 0 7px var(--led);flex:none}
+  .sync:hover{border-color:var(--acc);color:#fff}
+  .sync:active{transform:translateY(1px)}
+  .sync.syncing{border-color:var(--acc);color:#fff}
+  .sync.syncing .d{animation:syncblink .25s steps(2,end) infinite}
+  @keyframes syncblink{0%{opacity:1}100%{opacity:.2}}
 
-  /* jump-link bar */
-  .tabs{position:relative;z-index:25;display:flex;flex-wrap:wrap;gap:3px;padding:5px 12px;
-    background:linear-gradient(180deg,#1a1c1f,#141518);border-bottom:1px solid #000}
-  .tab{padding:4px 14px;border-radius:3px;cursor:pointer;font-weight:700;font-size:11px;letter-spacing:1px;
-    color:var(--dim);border:1px solid transparent;text-transform:uppercase}
-  .tab:hover{color:var(--ink)}
-  .tab.sel{color:#1a0c0a;background:linear-gradient(180deg,var(--red2),var(--red));border-color:#000;box-shadow:0 0 9px rgba(216,54,43,.45)}
+  /* horizontal section nav */
+  .tabs{position:sticky;top:54px;z-index:40;background:var(--chrome);border-bottom:1px solid rgba(0,0,0,.18);backdrop-filter:blur(9px)}
+  .tabsin{max-width:980px;margin:0 auto;display:flex;flex-wrap:wrap;gap:3px;padding:6px 26px}
+  .tabs a{display:flex;align-items:center;gap:7px;padding:5px 11px;color:var(--chromemut);text-decoration:none;cursor:pointer;
+    font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;border-radius:7px;border:1px solid transparent}
+  .tabs a .d{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.4;flex:none}
+  .tabs a:hover{color:var(--chromeink)}
+  .tabs a.on{color:var(--chromeink);background:color-mix(in srgb,var(--acc) 16%,transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+  .tabs a.on .d{background:var(--led);opacity:1;box-shadow:0 0 7px var(--led)}
 
-  /* scaled canvas of absolute blocks */
-  main{padding:0;overflow-x:auto}
-  .pagewrap{position:relative;margin:0 auto}  /* center the capped-width canvas under the full-width header (overflow visible so custom dropdowns aren't clipped) */
-  .canvas{position:absolute;top:0;left:0;transform-origin:top left}
-  /* Every panel is the Virus oscillator red; --accent (rgb triplet) is the
-     per-section header shade — black/gray. Controls render white/gray on top. */
-  /* subtle vertical gradient (lightest at centre) + very fine horizontal stripes */
-  .block{position:absolute;background:repeating-linear-gradient(0deg,rgba(255,255,255,.028) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 50%,rgba(0,0,0,.16)),rgb(196,52,40);
-    border:1px solid rgba(0,0,0,.6);border-radius:var(--r);padding:0 6px 0;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 2px 7px rgba(0,0,0,.6)}
-  /* powder-coat grain: grayscale fractal noise blended over the panel */
-  .block::before{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;z-index:0;
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size:140px 140px;mix-blend-mode:overlay;opacity:.55}
-  .block > *{position:relative;z-index:1}
-  .bhead{display:flex;align-items:center;gap:4px;margin:0 -6px 2px;padding:2px 6px;line-height:1;
-    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(0,0,0,.28)),rgb(var(--accent,34,34,36));
-    border-bottom:1px solid rgba(0,0,0,.5);box-shadow:inset 0 -1px 0 rgba(255,255,255,.05);border-radius:var(--r) var(--r) 0 0}
-  .bhead .t{font-size:7.1px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#f4f1ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.5)}
-  .bhead .led{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 4px rgba(255,255,255,.5);flex:none}
+  .content{max-width:980px;margin:0 auto;padding:14px 26px 90px}
 
-  .controls{position:relative}
-  .ctl{position:absolute;display:flex;flex-direction:column;align-items:center;gap:1px;transition:opacity .12s ease}
-  .ctl.pkdim{opacity:.3}   /* osc wave-select / pulse-width sidelined by current Shape zone */
-  .ctl > label{font-size:6.3px;color:#ffffff;text-transform:uppercase;letter-spacing:.2px;text-align:center;line-height:1.0;height:12px;
-    overflow:hidden;display:flex;align-items:flex-end;justify-content:center;width:100%;text-shadow:0 1px 1px rgba(0,0,0,.5)}
-  .ctl .val{font-size:7.2px;color:rgba(255,255,255,.85);min-height:8px;font-variant-numeric:tabular-nums;text-shadow:0 1px 1px rgba(0,0,0,.45)}
-  .knobsvg{width:40px;height:40px;display:block;margin:-4px 0 -8px;cursor:ns-resize;touch-action:none}
-  .kbody{fill:url(#kgrad);stroke:#000;stroke-width:1}
-  .karc{fill:none;stroke:rgba(0,0,0,.5);stroke-width:3;stroke-linecap:round}
-  .kfill{fill:none;stroke:rgba(245,242,236,.42);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
-  .kptr{stroke:#fff;stroke-width:2.2;stroke-linecap:round}
-  .krim{fill:#0c0d0f}                                              /* beveled dark rim under the body */
-  .kticks{stroke:rgba(255,255,255,.30);stroke-width:.8;stroke-linecap:round}  /* dial skirt marks */
-  .kknurl{stroke:rgba(0,0,0,.42);stroke-width:.7}                  /* radial grip texture on the rim */
-  /* custom dropdown (native <select> popups ignore page zoom + can't size their list) */
-  .ctl.sel .pick{position:relative;width:100%;height:16px;border:1px solid #000;border-radius:4px;cursor:pointer;
-    background:linear-gradient(180deg,#1d1e21,#101113);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
-  .ctl.sel .pick:hover{border-color:rgba(255,255,255,.4)}
-  .ctl.sel .pickval{color:#ffd21f;font-size:6px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 9px}
-  .ctl.sel .pickarr{position:absolute;right:3px;top:50%;margin-top:-2px;width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid #ff5142;pointer-events:none}
-  .ctl.sel .picklist{display:none;position:absolute;left:0;top:18px;min-width:100%;width:max-content;max-width:130px;z-index:5;
-    background:#15171b;border:1px solid #000;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.7);max-height:140px;overflow-y:auto;padding:2px}
-  .ctl.sel.open .picklist{display:block}
-  .ctl.sel .pickopt{color:#ffd21f;font-size:6px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;padding:2px 6px;white-space:nowrap;cursor:pointer;border-radius:2px}
-  .ctl.sel .pickopt:hover{background:#2a2d33}
-  .ctl.sel .pickopt.on{background:#3a2410}
-  /* hardware-style portrait push-button + top-left corner LED (Access Virus front panel) */
-  .sw{width:19px;height:24px;border-radius:4px;cursor:pointer;position:relative;
-    background:radial-gradient(130% 70% at 50% -12%,rgba(255,255,255,.22),rgba(255,255,255,0) 55%),linear-gradient(180deg,#45484e 0%,#313439 42%,#17191d 100%);
-    border:1px solid #000;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.20),inset 0 -3px 4px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.6);transition:.1s}
-  .sw:active{background:linear-gradient(180deg,#303237,#141518);box-shadow:inset 0 2px 3px rgba(0,0,0,.6)}
-  .sw .dot{position:absolute;top:3px;left:50%;margin-left:-2px;width:4px;height:4px;border-radius:50%;
-    background:#2a2407;box-shadow:inset 0 0 1px rgba(0,0,0,.9);transition:.12s}
-  .sw.on .dot{background:#ffd21f;box-shadow:0 0 5px 1.5px rgba(255,205,20,.9),inset 0 0 1px rgba(255,245,190,.95)}
-  .divider{position:absolute;z-index:6;border-radius:1px}
-  .divider.dv{background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
-  .divider.dh{background:linear-gradient(180deg,rgba(0,0,0,.6),rgba(255,255,255,.08))}
+  /* section panel */
+  .sec{position:relative;width:max-content;max-width:100%;background:linear-gradient(180deg,var(--surf2),var(--surf));border:1px solid var(--line);
+    border-radius:9px;padding:12px 15px 5px;margin:0 0 11px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0,0,0,.32)}
+  .scr{position:absolute;width:6px;height:6px;border-radius:50%;z-index:2;
+    background:radial-gradient(circle at 35% 30%,#cccfd3,#6c6f74 68%,#0c0d0e);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.5),0 1px 1px rgba(0,0,0,.4)}
+  .scr.tl{top:7px;left:7px}.scr.tr{top:7px;right:7px}.scr.bl{bottom:7px;left:7px}.scr.br{bottom:7px;right:7px}
+  .shd{display:flex;align-items:center;gap:9px;margin:0 2px 12px}
+  .shd .led{width:6px;height:6px;border-radius:50%;background:var(--led);box-shadow:0 0 7px var(--led);flex:none}
+  .shd .no{font-size:9px;font-weight:700;letter-spacing:1.4px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .shd h2{margin:0;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink);text-shadow:0 1px 1px rgba(0,0,0,.45)}
+  .shd .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
 
-  footer{padding:10px 12px 18px;color:#6a6d73;font-size:9.5px;text-align:center;letter-spacing:.5px}
+  .grp{margin:0 0 2px}
+  .gcap{font-size:8px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);margin:0 0 9px;display:flex;align-items:center;gap:7px}
+  .gcap::before{content:"";width:3px;height:3px;border-radius:50%;background:var(--led);box-shadow:0 0 4px var(--led);opacity:.8;flex:none}
+  .gcap::after{content:"";flex:1;height:1px;background:var(--line)}
+  .ctls{display:flex;flex-wrap:wrap;gap:14px 12px;align-items:flex-start;margin:0 0 12px}
+  .grprow{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+  .grprow .grp{flex:none}
+  .lfobox{width:max-content;max-width:100%;border:1px solid var(--line);border-left:3px solid var(--led);border-radius:7px;
+    padding:11px 14px 4px;margin:0 0 11px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.07))}
+  .lfobox .grp:first-child{margin-bottom:7px}
+
+  /* physical knob */
+  .k{display:flex;flex-direction:column;align-items:center;gap:4px;width:56px;flex:none}
+  .k .lab{font-size:8.2px;font-weight:600;letter-spacing:.2px;text-transform:uppercase;color:var(--ink);opacity:.9;text-align:center;
+    line-height:1.08;height:16px;max-width:66px;display:flex;align-items:flex-end;justify-content:center;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+  .k.dim{opacity:.32}
+  .ring{width:48px;height:48px}
+  .ring svg{width:48px;height:48px;display:block}
+  .ktick{stroke:var(--skirt);stroke-width:.9;stroke-linecap:round;fill:none}
+  .rt{fill:none;stroke:var(--track);stroke-width:2.4;stroke-linecap:round}
+  .rf{fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 0 2px color-mix(in srgb,var(--acc) 55%,transparent))}
+  .rk{stroke:var(--ptr);stroke-width:2;stroke-linecap:round}
+  .rv{font-size:8.8px;font-weight:600;color:var(--val);font-variant-numeric:tabular-nums}
+
+  /* LED readout select */
+  .k.sel{width:auto}
+  .k.sel .lab{max-width:150px}
+  .chip{height:26px;width:104px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:6px;border:1px solid var(--wellbd);
+    background:linear-gradient(180deg,#0c0e0d,#070908);box-shadow:inset 0 1px 3px rgba(0,0,0,.6),var(--wellring)}
+  .chip.wide{width:150px}
+  .chip .led{width:4px;height:4px;border-radius:50%;background:var(--led);box-shadow:0 0 5px var(--led);flex:none}
+  .chip .cv{flex:1;min-width:0;font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px}
+  .chip .ca{width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-top:4px solid var(--mut);flex:none}
+  .chip{cursor:pointer}
+  .chip:hover{border-color:var(--acc)}
+  .ring{cursor:ns-resize;touch-action:none}
+  .selmenu{position:fixed;z-index:200;background:linear-gradient(180deg,var(--surf2),var(--surf));border:1px solid var(--acc);
+    border-radius:8px;padding:4px;box-shadow:0 8px 26px rgba(0,0,0,.6);max-height:300px;overflow-y:auto;min-width:120px}
+  .selopt{padding:5px 11px;font-size:11px;font-weight:600;color:var(--ink);border-radius:5px;cursor:pointer;white-space:nowrap;letter-spacing:.2px}
+  .selopt:hover{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+  .selopt.on{background:var(--acc);color:#fff}
+
+  /* hardware button toggle */
+  .k.tg{width:auto;align-items:center}
+  .tgl{width:30px;height:22px;border-radius:5px;border:1px solid #000;position:relative;
+    background:linear-gradient(180deg,#3b3f45 0%,#26292e 45%,#15171a 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),inset 0 -2px 3px rgba(0,0,0,.5)}
+  .tgl .l{position:absolute;top:3px;left:50%;margin-left:-2.5px;width:5px;height:5px;border-radius:50%;background:#1c1d20;box-shadow:inset 0 0 1px rgba(0,0,0,.8)}
+  .tgl.on .l{background:var(--led);box-shadow:0 0 6px 1px var(--led),inset 0 0 1px rgba(255,250,225,.9)}
+  .k.tg .st{font-size:7.8px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--val);opacity:.8}
+  .k.tg.on .st{color:var(--ink);opacity:1}
+
+  /* scope */
+  .scope{display:inline-flex;gap:15px;align-items:stretch;border:1px solid var(--wellbd);border-radius:8px;padding:9px 12px;margin:2px 0 12px;max-width:100%;flex-wrap:wrap;
+    background:linear-gradient(180deg,#0c0e0d,#070908);box-shadow:inset 0 1px 4px rgba(0,0,0,.55),var(--wellring)}
+  .gcell{display:flex;flex-direction:column;gap:5px;flex:none}
+  .gcell .gl{font-size:8px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--val);opacity:.72;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .gcell .gl i{width:11px;height:2.5px;border-radius:2px;display:inline-block;flex:none}
+  .disp{flex:none;border-radius:5px;background:#070809;position:relative;overflow:hidden;border:1px solid var(--wellbd);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),var(--wellring)}
+  .scoperow{display:flex;width:100%;align-items:flex-start;margin:2px 0 12px;gap:16px}
+  .scoperow.between{justify-content:space-between}
+  .scoperow.around{justify-content:space-around}
+  .scoperow .scope{margin:0}
+  .disp svg{width:100%;height:100%;display:block}
+  .gline{stroke:rgba(255,255,255,.06);stroke-width:1}
+  .curve{fill:none;stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .curve.a{stroke:var(--acc)} .curve.b{stroke:var(--acc2)}
+  .carea{opacity:.16}
+  .leg{display:flex;flex-direction:column;justify-content:center;gap:6px;flex:none;min-width:96px}
+  .leg .lr{display:flex;align-items:center;gap:7px;font-size:9.5px;font-weight:600;color:var(--mut);letter-spacing:.4px}
+  .leg .lr b{color:var(--ink);font-weight:600}
+  .leg .sw7{width:14px;height:3px;border-radius:2px;flex:none}
+  .leg .vbig{font-size:18px;font-weight:300;color:var(--ink);letter-spacing:.5px}
+  .leg .vbig span{font-size:10px;color:var(--mut);font-weight:600;margin-left:3px}
+
+  /* mod matrix */
+  .mx{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 8px}
+  .mr{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surf)}
+  .mr .n{width:21px;height:21px;border-radius:6px;background:color-mix(in srgb,var(--acc) 15%,transparent);color:var(--acc);
+    font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+  .mr .src{flex:none}
+  .mr .src .chip{width:124px}
+  .mr .flow{display:flex;flex-direction:column;gap:7px}
+  .dp{display:flex;align-items:center;gap:8px}
+  .dp .ar{color:var(--mut);font-size:12px}
+  .dp .chip{width:118px;height:27px}
+  .amt{display:flex;align-items:center;gap:6px}
+  .amt .bar{width:232px;height:5px;border-radius:3px;background:#0c0d10;position:relative;overflow:hidden;border:1px solid var(--wellbd)}
+  .amt .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
+  .amt .fil{position:absolute;top:0;bottom:0;background:var(--acc)}
+  .amt .v{font-size:9.5px;font-weight:600;color:var(--ink);min-width:24px;text-align:right;font-variant-numeric:tabular-nums}
+
+  footer{max-width:980px;margin:0 auto;padding:10px 26px 50px;color:var(--chromemut);opacity:.7;font-size:9.5px;letter-spacing:.4px;text-align:center}
 </style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute"><defs>
-  <radialGradient id="kgrad" cx="38%" cy="30%" r="75%"><stop offset="0%" stop-color="#3a3d43"/><stop offset="55%" stop-color="#2c2e33"/><stop offset="100%" stop-color="#0c0d10"/></radialGradient>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="kcap" cx="38%" cy="30%" r="72%">
+    <stop offset="0%" stop-color="var(--cap1)"/><stop offset="100%" stop-color="var(--cap2)"/>
+  </radialGradient>
 </defs></svg>
-<div id="app">
-  <div class="topbar">
-  <header>
-    <div class="brand">OSIRUS<small>SCHWUNG EDITOR</small></div>
-    <span id="modelBadge" class="badge">A</span>
-    <div class="lcd">
-      <button class="nav" id="bPrev" title="Prev bank">«</button>
-      <span class="bank" id="bName">—</span>
-      <button class="nav" id="bNext" title="Next bank">»</button>
-      <button class="nav" id="pPrev" title="Prev patch">‹</button>
-      <span class="name" id="pName">—</span>
-      <span class="idx" id="pIdx"></span>
-      <button class="nav" id="pNext" title="Next patch">›</button>
-    </div>
-    <div class="grp"><span class="hl">Oct</span>
-      <button class="nav" id="oDown">−</button><span class="idx" id="oVal" style="color:var(--dim);min-width:26px;text-align:center">0</span><button class="nav" id="oUp">+</button></div>
-    <div class="grp zoomgrp"><span class="hl" title="Zoom">⌕</span>
-      <input id="zoom" type="range" min="0.5" max="2" step="0.05" value="1" title="Zoom"></div>
-    <button class="nav" id="syncBtn" title="Re-sync from device">⟳</button>
-    <div id="status"><span id="dot"></span><span id="statusText">connecting…</span></div>
-  </header>
-  <nav class="tabs" id="tabs"></nav>
+<div class="top"><div class="topin">
+  <div class="brand"><b>OSIRUS<i>.</i></b><span class="mn" id="mName">VIRUS A</span></div>
+  <div class="seg">
+    <button id="segA">A</button><button id="segB">B</button><button id="segC">C</button>
   </div>
-  <main id="main"></main>
-  <footer>OSIRUS · Access Virus emulator (Gearmulator) · monotimbral single-patch editor</footer>
-</div>
+  <div class="pr"><span class="dot"></span>
+    <button class="hb" id="pPrev" title="Prev patch">&lsaquo;</button>
+    <div class="lcd"><span class="pn" id="pName">&mdash;</span><span class="pm" id="pMeta">&mdash;</span></div>
+    <button class="hb" id="pNext" title="Next patch">&rsaquo;</button></div>
+  <div class="oct"><span class="l">Oct</span><button class="hb" id="oDown">&minus;</button><span class="ov" id="oVal">0</span><button class="hb" id="oUp">+</button></div>
+  <button class="sync" id="syncBtn" title="Re-sync patch from device"><span class="d"></span><span id="syncLabel">SYNC</span></button>
+</div></div>
+<nav class="tabs"><div class="tabsin" id="rail"></div></nav>
+<main class="content" id="main"></main>
+<footer>OSIRUS &middot; Access Virus emulator (Gearmulator) &middot; single-patch editor</footer>
 
 <script src="/static/schwung-remote-api.js"></script>
 <script>
@@ -170,10 +209,38 @@ var PARAM_ORDER = ["osc1_shape", "osc1_pulsewidth", "osc1_wave_select", "osc1_se
 /* Bipolar params (Virus "signed"/"pan" display): raw 0-127 with 64 = 0 center.
    Generated from parameterDescriptions_C.json toText; see gen_web_ui_params.py. */
 var BIPOLAR = {"osc1_semitone":1, "osc1_keyfollow":1, "osc2_semitone":1, "osc2_filt_env_amt":1, "fm_filt_env_amt":1, "osc2_keyfollow":1, "osc_balance":1, "noise_color":1, "cutoff2_offset":1, "filter1_keyfollow":1, "filter2_keyfollow":1, "filter_balance":1, "lfo1_symmetry":1, "osc1_lfo1_amount":1, "osc2_lfo1_amount":1, "pw_lfo1_amount":1, "reso_lfo1_amount":1, "filtgain_lfo1_amount":1, "lfo2_symmetry":1, "shape_lfo2_amount":1, "fm_lfo2_amount":1, "cutoff1_lfo2_amount":1, "cutoff2_lfo2_amount":1, "pan_lfo2_amount":1, "panorama":1, "transpose":1, "unison_lfo_phase":1, "chorus_feedback":1, "delay_color":1, "arp_note_length":1, "bender_range_up":1, "bender_range_down":1, "osc1_shape_velocity":1, "osc2_shape_velocity":1, "pulsewidth_velocity":1, "fm_amount_velocity":1, "flt1_envamt_velocity":1, "flt2_envamt_velocity":1, "resonance1_velocity":1, "resonance2_velocity":1, "amp_velocity":1, "panorama_velocity":1, "assign1_amount":1, "assign2_amount1":1, "assign2_amount2":1, "assign3_amount1":1, "assign3_amount2":1, "assign3_amount3":1, "lfo1_assign_amount":1, "lfo2_assign_amount":1, "osc3_semitone":1, "phaser_feedback":1, "assign4_amount":1, "assign5_amount":1, "assign6_amount":1};
-</script>
-<script>
-/* Custom layout (tools/osiruslayout.json). */
-var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"band":"osc","title":"Osc 1","cols":5,"x":8,"y":8,"w":null,"h":152,"controls":[{"key":"osc1_wave_select","col":0,"row":0,"span":2},{"key":"osc1_shape","col":2,"row":0,"span":1},{"key":"osc1_pulsewidth","col":3,"row":0,"span":1},{"key":"osc1_semitone","col":0,"row":1,"span":1},{"key":"osc1_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Osc 2","cols":10,"x":256,"y":8,"w":null,"h":152,"controls":[{"key":"osc2_wave_select","col":0,"row":0,"span":2},{"key":"osc2_shape","col":2,"row":0,"span":1},{"key":"osc2_pulsewidth","col":3,"row":0,"span":1},{"key":"osc2_semitone","col":0,"row":1,"span":1},{"key":"osc2_detune","col":1,"row":1,"span":1},{"key":"osc2_sync","col":4,"row":0,"span":1},{"key":"osc2_fm_amount","col":5,"row":1,"span":1},{"key":"osc_fm_mode","col":5,"row":0,"span":2},{"key":"osc2_filt_env_amt","col":3,"row":1,"span":1},{"key":"fm_filt_env_amt","col":6,"row":1,"span":1},{"key":"osc2_keyfollow","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Common","cols":3,"x":400,"y":196,"w":248,"h":84,"controls":[{"key":"osc_init_phase","col":0,"row":0,"span":1},{"key":"punch_intensity","col":1,"row":0,"span":1},{"key":"noise_color","col":2,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Unison","cols":5,"x":8,"y":196,"w":368,"h":84,"controls":[{"key":"unison_mode","col":0,"row":0,"span":2},{"key":"unison_detune","col":2,"row":0,"span":1},{"key":"unison_pan_spread","col":3,"row":0,"span":1},{"key":"unison_lfo_phase","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Mixer","cols":2,"x":672,"y":8,"w":136,"h":200,"controls":[{"key":"osc_balance","col":0,"row":0,"span":1},{"key":"osc_mainvolume","col":1,"row":0,"span":1},{"key":"sub_osc_volume","col":0,"row":1,"span":1},{"key":"noise_volume","col":1,"row":1,"span":1},{"key":"ringmod_volume","col":0,"row":2,"span":1},{"key":"sub_osc_shape","col":0,"row":3,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 1","cols":4,"x":8,"y":316,"w":null,"h":136,"controls":[{"key":"cutoff","col":0,"row":0,"span":1},{"key":"filter1_resonance","col":1,"row":0,"span":1},{"key":"filter1_env_amt","col":2,"row":0,"span":1},{"key":"filter1_keyfollow","col":3,"row":0,"span":1},{"key":"filter1_mode","col":0,"row":1,"span":2},{"key":"filter1_env_polarity","col":2,"row":1,"span":2}],"dividers":[]},{"band":"osc","title":"Filter 2","cols":4,"x":256,"y":316,"w":216,"h":112,"controls":[{"key":"cutoff2_offset","col":0,"row":0,"span":1},{"key":"filter2_resonance","col":1,"row":0,"span":1},{"key":"filter2_env_amt","col":2,"row":0,"span":1},{"key":"filter2_keyfollow","col":3,"row":0,"span":1},{"key":"filter2_mode","col":0,"row":1,"span":2},{"key":"filter2_env_polarity","col":2,"row":1,"span":2},{"key":"filter2_cutoff_link","col":4,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Routing","cols":6,"x":560,"y":316,"w":248,"h":null,"controls":[{"key":"filter_routing","col":0,"row":0,"span":2},{"key":"filter_select","col":2,"row":0,"span":2},{"key":"filter_balance","col":3,"row":1,"span":1},{"key":"saturation_curve","col":0,"row":1,"span":2},{"key":"filter_keytrack_base","col":2,"row":1,"span":1}],"dividers":[]},{"band":"osc","title":"Filter Envelope","cols":5,"x":416,"y":488,"w":392,"h":72,"controls":[{"key":"flt_attack","col":1,"row":0,"span":1},{"key":"flt_decay","col":2,"row":0,"span":1},{"key":"flt_sustain","col":3,"row":0,"span":1},{"key":"flt_sustain_time","col":4,"row":0,"span":1},{"key":"flt_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Amp Envelope","cols":5,"x":8,"y":488,"w":384,"h":72,"controls":[{"key":"amp_attack","col":1,"row":0,"span":1},{"key":"amp_decay","col":2,"row":0,"span":1},{"key":"amp_sustain","col":3,"row":0,"span":1},{"key":"amp_sustain_time","col":4,"row":0,"span":1},{"key":"amp_release","col":5,"row":0,"span":1}],"dividers":[]},{"band":"osc","title":"Velocity Mod","cols":10,"x":8,"y":596,"w":800,"h":null,"controls":[{"key":"osc1_shape_velocity","col":2,"row":0,"span":1},{"key":"osc2_shape_velocity","col":3,"row":0,"span":1},{"key":"pulsewidth_velocity","col":4,"row":0,"span":1},{"key":"fm_amount_velocity","col":5,"row":0,"span":1},{"key":"flt1_envamt_velocity","col":6,"row":0,"span":1},{"key":"flt2_envamt_velocity","col":7,"row":0,"span":1},{"key":"resonance1_velocity","col":8,"row":0,"span":1},{"key":"resonance2_velocity","col":9,"row":0,"span":1},{"key":"amp_velocity","col":10,"row":0,"span":1},{"key":"panorama_velocity","col":11,"row":0,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1","cols":4,"x":8,"y":700,"w":176,"h":280,"controls":[{"key":"lfo1_rate","col":0,"row":0,"span":1},{"key":"lfo1_clock","col":1,"row":0,"span":2},{"key":"lfo1_shape","col":1,"row":1,"span":2},{"key":"lfo1_mode","col":1,"row":2,"span":2},{"key":"lfo1_env_mode","col":0,"row":2,"span":1},{"key":"lfo1_symmetry","col":0,"row":1,"span":1},{"key":"lfo1_keyfollow","col":1,"row":3,"span":1},{"key":"lfo1_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 1 \u2192 Mod","cols":3,"x":208,"y":700,"w":184,"h":280,"controls":[{"key":"osc1_lfo1_amount","col":0,"row":0,"span":1},{"key":"osc2_lfo1_amount","col":1,"row":0,"span":1},{"key":"pw_lfo1_amount","col":2,"row":0,"span":1},{"key":"reso_lfo1_amount","col":0,"row":1,"span":1},{"key":"filtgain_lfo1_amount","col":1,"row":1,"span":1},{"key":"lfo1_assign_dest","col":0,"row":2,"span":2},{"key":"lfo1_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2","cols":4,"x":416,"y":700,"w":184,"h":280,"controls":[{"key":"lfo2_rate","col":0,"row":0,"span":1},{"key":"lfo2_clock","col":1,"row":0,"span":2},{"key":"lfo2_shape","col":1,"row":1,"span":2},{"key":"lfo2_mode","col":1,"row":2,"span":2},{"key":"lfo2_env_mode","col":0,"row":2,"span":1},{"key":"lfo2_symmetry","col":0,"row":1,"span":1},{"key":"lfo2_keyfollow","col":1,"row":3,"span":1},{"key":"lfo2_keytrigger","col":0,"row":3,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 2 \u2192 Mod","cols":3,"x":624,"y":700,"w":184,"h":280,"controls":[{"key":"shape_lfo2_amount","col":0,"row":0,"span":1},{"key":"fm_lfo2_amount","col":1,"row":0,"span":1},{"key":"cutoff1_lfo2_amount","col":2,"row":0,"span":1},{"key":"cutoff2_lfo2_amount","col":0,"row":1,"span":1},{"key":"pan_lfo2_amount","col":1,"row":1,"span":1},{"key":"lfo2_assign_dest","col":0,"row":2,"span":2},{"key":"lfo2_assign_amount","col":2,"row":2,"span":1}],"dividers":[]},{"band":"lfo","title":"LFO 3","cols":2,"x":8,"y":1016,"w":112,"h":280,"controls":[{"key":"lfo3_rate","col":0,"row":0,"span":1},{"key":"lfo3_clock","col":0,"row":1,"span":2},{"key":"lfo3_shape","col":0,"row":2,"span":2},{"key":"lfo3_mode","col":0,"row":3,"span":2},{"key":"lfo3_keyfollow","col":1,"row":6,"span":1},{"key":"lfo3_destination","col":0,"row":4,"span":2},{"key":"osc_lfo3_amount","col":0,"row":5,"span":1},{"key":"lfo3_fadein_time","col":0,"row":6,"span":1}],"dividers":[]},{"band":"lfo","title":"Assign","cols":9,"x":144,"y":1016,"w":664,"h":216,"controls":[{"key":"assign1_source","col":0,"row":0,"span":2},{"key":"assign1_destination","col":2,"row":0,"span":2},{"key":"assign1_amount","col":4,"row":0,"span":1},{"key":"assign2_source","col":0,"row":1,"span":2},{"key":"assign2_dest1","col":2,"row":1,"span":2},{"key":"assign2_amount1","col":4,"row":1,"span":1},{"key":"assign2_dest2","col":5,"row":1,"span":2},{"key":"assign2_amount2","col":7,"row":1,"span":1},{"key":"assign3_source","col":0,"row":2,"span":2},{"key":"assign3_dest1","col":2,"row":2,"span":2},{"key":"assign3_amount1","col":4,"row":2,"span":1},{"key":"assign3_dest2","col":5,"row":2,"span":2},{"key":"assign3_amount2","col":7,"row":2,"span":1},{"key":"assign3_dest3","col":8,"row":2,"span":2},{"key":"assign3_amount3","col":10,"row":2,"span":1}],"dividers":[]},{"band":"fx","title":"Chorus","cols":4,"x":640,"y":1268,"w":null,"h":224,"controls":[{"key":"chorus_mix","col":0,"row":0,"span":1},{"key":"chorus_rate","col":1,"row":0,"span":1},{"key":"chorus_depth","col":2,"row":0,"span":1},{"key":"chorus_delay","col":1,"row":1,"span":1},{"key":"chorus_feedback","col":0,"row":1,"span":1},{"key":"chorus_lfo_shape","col":0,"row":2,"span":2}],"dividers":[]},{"band":"fx","title":"Delay / Reverb","cols":6,"x":392,"y":1268,"w":null,"h":224,"controls":[{"key":"effect_send","col":0,"row":0,"span":1},{"key":"delay_depth","col":1,"row":0,"span":1},{"key":"delay_reverb_mode","col":2,"row":0,"span":2},{"key":"delay_time","col":0,"row":1,"span":1},{"key":"delay_rate_rev_decay","col":1,"row":1,"span":1},{"key":"delay_color","col":2,"row":1,"span":1},{"key":"delay_feedback","col":3,"row":1,"span":1},{"key":"delay_lfo_shape","col":0,"row":2,"span":2},{"key":"delay_clock","col":2,"row":2,"span":2}],"dividers":[]},{"band":"arp","title":"Arpeggiator","cols":4,"x":144,"y":1268,"w":null,"h":224,"controls":[{"key":"arp_mode","col":0,"row":0,"span":2},{"key":"arp_pattern","col":2,"row":0,"span":1},{"key":"arp_octave_range","col":0,"row":1,"span":2},{"key":"arp_hold","col":3,"row":1,"span":1},{"key":"arp_note_length","col":3,"row":0,"span":1},{"key":"arp_swing","col":3,"row":2,"span":1},{"key":"arp_clock","col":0,"row":2,"span":2},{"key":"clock_tempo","col":2,"row":2,"span":1}],"dividers":[]},{"band":"arp","title":"Patch / Output","cols":5,"x":8,"y":1528,"w":804,"h":128,"controls":[{"key":"patch_volume","col":0,"row":0,"span":1},{"key":"panorama","col":1,"row":0,"span":1},{"key":"key_mode","col":2,"row":0,"span":2},{"key":"transpose","col":4,"row":0,"span":1},{"key":"portamento_time","col":5,"row":0,"span":1},{"key":"bender_range_up","col":6,"row":0,"span":1},{"key":"bender_range_down","col":7,"row":0,"span":1}],"dividers":[]}]};
+var LABELS = { osc2_filt_env_amt:"Env\u2192Pitch", fm_filt_env_amt:"Env\u2192FM", portamento_time:"Porta", osc_init_phase:"Init Phase",
+    ringmod_volume:"Ring Mod", osc_balance:"Osc 1\u21942", filter_keytrack_base:"KeyTrk Base", cutoff2_offset:"Cutoff 2",
+    bender_range_up:"Bend Up", bender_range_down:"Bend Dn", effect_send:"FX Send", noise_color:"Noise Color", clock_tempo:"Tempo",
+    sub_osc_volume:"Sub Osc", osc_mainvolume:"Osc Vol", delay_rate_rev_decay:"Rate / Dec", input_ringmod:"In Ring",
+    bass_intensity:"Boost", bass_tune:"Boost Tune", patch_volume:"Patch Vol", osc_lfo3_amount:"Osc Amt",
+    osc1_lfo1_amount:"\u2192Osc1", osc2_lfo1_amount:"\u2192Osc2", pw_lfo1_amount:"\u2192PW", reso_lfo1_amount:"\u2192Reso", filtgain_lfo1_amount:"\u2192FltGain",
+    shape_lfo2_amount:"\u2192Shape", fm_lfo2_amount:"\u2192FM", cutoff1_lfo2_amount:"\u2192Cut1", cutoff2_lfo2_amount:"\u2192Cut2", pan_lfo2_amount:"\u2192Pan",
+    lfo1_assign_dest:"Assign Dst", lfo1_assign_amount:"Assign Amt", lfo2_assign_dest:"Assign Dst", lfo2_assign_amount:"Assign Amt" };
+var SKINS = {
+    0:{ bg:"#16110f",surf:"#7a201a",surf2:"#9a2a22",line:"rgba(0,0,0,.32)",ink:"#fdf3ef",mut:"#eab9b0",
+        acc:"#f5a623",acc2:"#ff7044",led:"#ffc01f",val:"#f6e2db",skirt:"rgba(255,235,225,.40)",ptr:"#ffffff",
+        track:"rgba(255,255,255,.13)",chrome:"#1a1411",chromeink:"#fbeee8",chromemut:"#b29a91",gloss:"rgba(255,238,214,.24)",cap1:"#57392e",cap2:"#0b0503",
+        cheek1:"#7c2018",cheek2:"#3d0f0a",lcdbg:"linear-gradient(180deg,#9ece4d,#80b438)",lcdink:"#16280b",lcdframe:"#37460e",
+        wellbd:"#000",wellring:"0 0 0 1px rgba(0,0,0,0)",
+        name:"MODEL A \u00b7 12 VOICE",lcd:["Soft Saw Pad","RAM-A \u00b7 034 / 128"] },
+    1:{ bg:"#c6cacf",surf:"#22304a",surf2:"#2c3a56",line:"rgba(255,255,255,.14)",ink:"#ffffff",mut:"#c2cad8",
+        acc:"#3d82e6",acc2:"#46cbe6",led:"#54b6ff",val:"#eef3fb",skirt:"rgba(220,232,250,.40)",ptr:"#ffffff",cap1:"#34415c",cap2:"#0f131b",
+        track:"rgba(255,255,255,.13)",chrome:"#c6cacf",chromeink:"#19233a",chromemut:"#5c6878",
+        gloss:"rgba(255,255,255,.16)",cheek1:"#c9cdd2",cheek2:"#8d9197",lcdbg:"linear-gradient(180deg,#5e86c2,#4a72ad)",lcdink:"#091a30",lcdframe:"#26426a",
+        wellbd:"rgba(0,0,0,.5)",wellring:"0 0 0 1px rgba(0,0,0,0)",
+        name:"MODEL B \u00b7 24 VOICE",lcd:["HyperBass MS","RAM-B \u00b7 071 / 128"] },
+    2:{ bg:"#0e0f11",surf:"#1c2026",surf2:"#23282f",line:"rgba(116,156,191,.42)",ink:"#eaedf1",mut:"#94a3b4",
+        acc:"#ff3a22",acc2:"#7fa6c8",led:"#ff3320",val:"#cdd3da",skirt:"rgba(220,232,242,.28)",ptr:"#15171a",cap1:"#9aa0a8",cap2:"#191b1e",
+        track:"rgba(255,255,255,.10)",chrome:"#121315",chromeink:"#eaedf1",chromemut:"#8f99a6",
+        gloss:"rgba(255,255,255,.12)",cheek1:"#8a5a2e",cheek2:"#46290f",lcdbg:"linear-gradient(180deg,#1c0706,#120403)",lcdink:"#ff3b27",lcdframe:"#5a1410",
+        wellbd:"rgba(140,176,212,.62)",wellring:"0 0 0 1px rgba(150,182,216,.14)",
+        name:"MODEL C \u00b7 32 VOICE",lcd:["Black Velvet SV","RAM-C \u00b7 012 / 128"] }
+  };
+/* Readable mod-matrix destination names. Order matches the engine destination
+   enum 1:1 (verified against the AUTO-GENERATED opts_mod_dest above); re-verify
+   if g_params / the destination enum changes. */
+OPTS.opts_mod_dest = ["Off","PatchVol","ChannelVol","Panorama","Transpose","Portamento","Osc1 Shape","Osc1 PW","Osc1 Wave","Osc1 Pitch","Osc1 KeyF","Osc2 Shape","Osc2 PW","Osc2 Wave","Osc2 Pitch","Osc2 Detune","Osc2 FM","Osc2 EnvAmt","FM EnvAmt","Osc2 KeyF","OscBalance","SubOscVol","OscMainVol","NoiseVol","Cutoff","Cutoff2","Filt1 Reso","Filt2 Reso","Flt1 EnvAmt","Flt2 EnvAmt","Flt1 KeyF","Flt2 KeyF","FltBalance","Flt Attack","Flt Decay","Flt Sustain","Flt SusTime","Flt Release","Amp Attack","Amp Decay","Amp Sustain","Amp SusTime","Amp Release","Lfo1 Rate","Lfo1 Cont","Lfo1>Osc1","Lfo1>Osc2","Lfo1>PW","Lfo1>Reso","Lfo1>FltGn","Lfo2 Rate","Lfo2 Cont","Lfo2>Shape","Lfo2>FM","Lfo2>Cut1","Lfo2>Cut2","Lfo2>Pan","Lfo3 Rate","Lfo3>Osc","UniDetune","UniSpread","UniLfoPhs","ChorusMix","ChorusRate","ChorusDpth","ChorusDly","ChorusFeed","EffectSend","DelayTime","DelayFeed","DelayRate","DelayDepth","Osc1ShpVel","Osc2ShpVel","PW Vel","FM Vel","Flt1EnvVel","Flt2EnvVel","Reso1 Vel","Reso2 Vel","Amp Vel","Pan Vel","Ass1 Amt1","Ass2 Amt1","Ass2 Amt2","Ass3 Amt1","Ass3 Amt2","Ass3 Amt3","OscInitPhs","Punch","RingMod","NoiseColor","DelayColor","ABoost Int","ABoost Tune","Dist Int","RingmodMix","Osc3 Vol","Osc3 Semi","Osc3 Detune","Lfo1AssAmt","Lfo2AssAmt","PhaserMix","PhaserRate","PhaserDept","PhaserFreq","PhaserFdbk","PhaserSprd","Revb Decay","RevDamping","Revb Color","RevPredly","RevFeedbck","SecBalance","ArpNoteLen","Arp Swing","ArpPattern","EqMidGain","EqMidFreq","EqMidQ","Asgn4 Amt","Asgn5 Amt","Asgn6 Amt"];
 </script>
 <script>
 (function(){
@@ -187,385 +254,414 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     onParamChange:function(){}, getHierarchy:function(){return Promise.resolve(null);}, getChainParams:function(){return Promise.resolve(null);}
   };
 
-  var DESIGN_W=(LAYOUT.canvasWidth)||1130;
-  // Cap the rendered canvas width to match the OB-Xd remote UI (its rack is a
-  // fixed min-width:980 in schwung-obxd/src/web_ui.html). The canvas scales
-  // proportionally down to this instead of filling the wider (~1130) iframe;
-  // the preset/sync header (outside #main) keeps its own full width.
-  var TARGET_W=980;
-  // Compaction (orig cell 56x68). Tighter cells + block positions pulled toward
-  // the origin so gaps close while the relative arrangement is preserved. The
-  // canvas is width-normalised, so BY (vertical pull) is the real density win.
-  // Cell pitch for params; knobs/selects are fixed px, so a smaller cell packs
-  // them closer relative to their size. BX/BY pull block positions by the same
-  // factor (BX=CW/56, BY=RH/68 vs the arranger's original 56x68 cell) so the
-  // block ARRANGEMENT stays proportional while the params tighten.
-  var CW=44, RH=52, BX=0.786, BY=0.765;
-  // A row containing only pickers (selects) needs far less height than a knob row,
-  // so it gets SHORT pitch instead of RH — removes the dead space a short select
-  // row would otherwise reserve at the knob-row pitch.
-  var SHORT=32;
-  // Jump-menu sections (finer than the arranger's coarse bands). Order = scroll order.
-  var BANDS=[{id:"osc",label:"OSC"},{id:"filt",label:"FILT"},{id:"env",label:"ENV"},
-             {id:"lfo",label:"LFO"},{id:"asng",label:"ASNG"},{id:"arpfx",label:"ARP/FX"}];
-  var SECTION={
-    "Osc 1":"osc","Osc 2":"osc","Common":"osc","Unison":"osc","Mixer":"osc",
-    "Filter 1":"filt","Filter 2":"filt","Filter Routing":"filt",
-    "Amp Envelope":"env","Filter Envelope":"env","Velocity Mod":"env",
-    "Assign":"asng",
-    "Arpeggiator":"arpfx","Chorus":"arpfx","Delay / Reverb":"arpfx","Patch / Output":"arpfx"
-  };
-  function sectionFor(t){ return /^LFO/.test(t) ? "lfo" : (SECTION[t]||"osc"); }
+  var NS="http://www.w3.org/2000/svg";
+  var state={ values:{}, level:0, built:false, lastPreset:null, lastBank:null, _rsy:0 };
+  var controls={};            // key -> [listener,...]
+  var zoneEls={}, _menu=null, _menuOwner=null, _spy=null;
 
-  var state={ values:{}, level:0, built:false, canvas:null, wrap:null, designH:0, bandFirst:{} };
-  var controls={};   // key -> [setter,...]
-
+  /* ---- low-level helpers ---- */
   function num(x){ var n=parseFloat(x); return isNaN(n)?0:n; }
   function el(t,c,x){ var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e; }
-  function setParam(key,v){ state.values[key]=String(v); remote.setParam(PREFIX+key,String(v));
-    var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }   // fire listeners (e.g. Shape→dim reactivity) on local edits
+  function ns(t,a){ var e=document.createElementNS(NS,t); if(a)for(var k in a)e.setAttribute(k,a[k]); return e; }
+  function isOffOn(o){ return o&&o.length===2 && /off/i.test(o[0]) && /on/i.test(o[1]); }
+  function polar(cx,cy,r,deg){ var a=deg*Math.PI/180; return [cx+r*Math.sin(a), cy-r*Math.cos(a)]; }
+  function arc(cx,cy,r,f,t){ var a=polar(cx,cy,r,f), b=polar(cx,cy,r,t), big=(t-f)>180?1:0;
+    return "M"+a[0].toFixed(2)+","+a[1].toFixed(2)+" A"+r+","+r+" 0 "+big+" 1 "+b[0].toFixed(2)+","+b[1].toFixed(2); }
+
+  /* ---- transport / binding layer (device <-> UI). KEEP. ---- */
+  function setParam(key,v){ v=String(v); state.values[key]=v; remote.setParam(PREFIX+key,v);
+    var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }
   function onValue(key,fn){ (controls[key]||(controls[key]=[])).push(fn); }
   function pushValue(key,v){ state.values[key]=String(v); var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }
-  function isOffOn(o){ return o.length===2 && /off/i.test(o[0]) && /on/i.test(o[1]); }
+  var bind=onValue;
 
-  // label de-dup (matches the arranger) + per-key overrides
-  function stripFor(title){ var m;
-    if(m=title.match(/^Osc (\d)/)) return m[1]==="2"?["Osc2","Osc"]:["Osc"+m[1]];
-    if(m=title.match(/^LFO (\d)/)) return ["LFO"+m[1]];
-    if(m=title.match(/^Filter (\d)/)) return ["Filt"+m[1],"Flt"+m[1]];
-    if(title==="Unison") return ["Unison"];
-    if(title==="Filter Routing") return ["Filter","Filt","Flt"];
-    if(title==="Filter Envelope") return ["Flt"];
-    if(title==="Amp Envelope") return ["Amp"];
-    if(title==="Velocity Mod") return ["Velocity","Vel"];
-    if(title==="Chorus"||title==="Phaser") return [title];
-    if(title.indexOf("Delay")===0) return ["Delay"];
-    if(title==="EQ") return ["EQ"];
-    if(title==="Distortion") return ["Dist"];
-    if(title==="Arpeggiator") return ["Arp"];
-    return [];
-  }
-  function shortName(name,strip){ if(!strip||!strip.length) return name; var s=name;
-    strip.forEach(function(t){ s=s.replace(new RegExp("\\b"+t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","ig")," "); });
-    s=s.replace(/\s+/g," ").trim(); return s||name; }
-  var LABELS={ osc2_filt_env_amt:"Env→Pitch", fm_filt_env_amt:"Env→FM", portamento_time:"Porta",
-    delay_rate_rev_decay:"Rate/Dcy", osc_init_phase:"Phase", ringmod_volume:"Ring Vol",
-    osc_balance:"Osc1/2", filter_keytrack_base:"KeyFlw", cutoff2_offset:"Cut2 Ofs",
-    bender_range_up:"Bend ↑", bender_range_down:"Bend ↓",
-    effect_send:"FX Send", noise_color:"Color", clock_tempo:"Tempo",
-    sub_osc_volume:"Sub Vol", osc_mainvolume:"Osc Vol",
-    assign2_amount1:"A2 Amt1", assign2_amount2:"A2 Amt2",
-    assign3_amount1:"A3 Amt1", assign3_amount2:"A3 Amt2", assign3_amount3:"A3 Amt3" };
+  /* read/write used by every control */
+  function val(key){ var m=PARAMS[key]; var d=m?m.min:0; var v=state.values[key]; return num(v!==undefined&&v!==""?v:d); }
+  function setVal(key,v){ var m=PARAMS[key]; if(!m) return; v=Math.max(m.min,Math.min(m.max,Math.round(v)));
+    if(state.values[key]!==undefined && num(state.values[key])===v) return; setParam(key,v); }
 
-  // ---- live widgets (native ints) ----
-  var NS="http://www.w3.org/2000/svg";
-  function polar(cx,cy,r,deg){ var a=deg*Math.PI/180; return [cx+r*Math.sin(a), cy-r*Math.cos(a)]; }
-  function arc(r,fromDeg,toDeg){ var a=polar(20,20,r,fromDeg), b=polar(20,20,r,toDeg), large=(toDeg-fromDeg)>180?1:0;
-    return "M"+a[0].toFixed(2)+","+a[1].toFixed(2)+" A"+r+","+r+" 0 "+large+" 1 "+b[0].toFixed(2)+","+b[1].toFixed(2); }
-  function lbl(nm,full){ var l=el("label",null,nm); l.title=full||nm; return l; }
-  function makeKnob(key,m,nm){
-    var min=num(m.min), max=num(m.max); if(max<=min) max=min+1;
-    var bip=!!BIPOLAR[key], center=64, signed=bip||min<0;
-    var degC=bip ? (-135+(center-min)/(max-min)*270) : -135;  // fill origin: center for bipolar, min otherwise
-    var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
-    var svg=document.createElementNS(NS,"svg"); svg.setAttribute("viewBox","0 0 40 40"); svg.setAttribute("class","knobsvg");
-    // dial skirt ticks (outside the body)
-    var tk="",N=15; for(var i=0;i<N;i++){ var d=-135+i*(270/(N-1)), a=polar(20,20,15.6,d), b=polar(20,20,17.8,d); tk+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
-    var ticks=document.createElementNS(NS,"path"); ticks.setAttribute("class","kticks"); ticks.setAttribute("d",tk); svg.appendChild(ticks);
-    var rim=document.createElementNS(NS,"circle"); rim.setAttribute("cx",20); rim.setAttribute("cy",20); rim.setAttribute("r",14.2); rim.setAttribute("class","krim"); svg.appendChild(rim);
-    var body=document.createElementNS(NS,"circle"); body.setAttribute("cx",20); body.setAttribute("cy",20); body.setAttribute("r",13.4); body.setAttribute("class","kbody"); svg.appendChild(body);
-    // knurled grip ridges around the rim (texture)
-    var kn="",M=36; for(var i=0;i<M;i++){ var d=i*(360/M), a=polar(20,20,11.4,d), b=polar(20,20,13.6,d); kn+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
-    var knurl=document.createElementNS(NS,"path"); knurl.setAttribute("class","kknurl"); knurl.setAttribute("d",kn); svg.appendChild(knurl);
-    var trk=document.createElementNS(NS,"path"); trk.setAttribute("class","karc"); trk.setAttribute("d",arc(13,-135,135)); svg.appendChild(trk);
-    var fill=document.createElementNS(NS,"path"); fill.setAttribute("class","kfill"); svg.appendChild(fill);
-    var ptr=document.createElementNS(NS,"line"); ptr.setAttribute("class","kptr"); ptr.setAttribute("x1",20); ptr.setAttribute("y1",20); svg.appendChild(ptr);
-    wrap.appendChild(svg); var val=el("span","val"); wrap.appendChild(val);
-    function draw(v){ v=Math.max(min,Math.min(max,v)); var frac=(v-min)/(max-min), deg=-135+frac*270, pe=polar(20,20,13,deg);
-      ptr.setAttribute("x2",pe[0].toFixed(2)); ptr.setAttribute("y2",pe[1].toFixed(2));
-      fill.setAttribute("d", bip ? arc(13,Math.min(deg,degC),Math.max(deg,degC)) : arc(13,-135,deg));
-      var disp=bip ? Math.round(v)-center : Math.round(v);
-      val.textContent=(signed&&disp>0?"+":"")+disp; }
-    function cur(){ return num(state.values[key]!==undefined?state.values[key]:min); }
-    onValue(key,function(v){ draw(num(v)); });
-    var dragging=false,sy=0,sv=0;
-    function down(e){ dragging=true; sy=(e.touches?e.touches[0].clientY:e.clientY); sv=cur();
-      window.addEventListener("mousemove",move); window.addEventListener("touchmove",move,{passive:false});
-      window.addEventListener("mouseup",up); window.addEventListener("touchend",up); e.preventDefault(); }
-    function move(e){ if(!dragging)return; var y=(e.touches?e.touches[0].clientY:e.clientY);
-      var nv=Math.round(sv+(sy-y)*(max-min)/(e.shiftKey?900:150)); nv=Math.max(min,Math.min(max,nv)); setParam(key,nv); draw(nv); e.preventDefault(); }
-    function up(){ dragging=false; window.removeEventListener("mousemove",move); window.removeEventListener("touchmove",move); window.removeEventListener("mouseup",up); window.removeEventListener("touchend",up); }
-    svg.addEventListener("mousedown",down); svg.addEventListener("touchstart",down,{passive:false});
-    svg.addEventListener("wheel",function(e){ var nv=Math.max(min,Math.min(max,cur()+(e.deltaY<0?1:-1))); setParam(key,nv); draw(nv); e.preventDefault(); },{passive:false});
-    draw(cur()); return wrap;
-  }
-  function makeSelect(key,m,opts,nm){
-    var wrap=el("div","ctl sel"); wrap.appendChild(lbl(nm,m.name));
-    var pick=el("div","pick"); var valSpan=el("span","pickval"); pick.appendChild(valSpan); pick.appendChild(el("span","pickarr"));
-    var list=el("div","picklist");
-    opts.forEach(function(o,i){ var it=el("div","pickopt",o);
-      it.onclick=function(e){ e.stopPropagation(); setParam(key,i); setVal(i); close(); };
-      list.appendChild(it); });
-    pick.appendChild(list); wrap.appendChild(pick);
-    function setVal(i){ valSpan.textContent=opts[i]!==undefined?opts[i]:"";
-      for(var c=0;c<list.children.length;c++) list.children[c].classList.toggle("on",c===i); }
-    function onDoc(){ close(); }
-    function close(){ wrap.classList.remove("open"); var b=wrap.closest(".block"); if(b) b.style.zIndex=""; document.removeEventListener("click",onDoc); }
-    function open(){ wrap.classList.add("open"); var b=wrap.closest(".block"); if(b) b.style.zIndex="1000"; document.addEventListener("click",onDoc); }
-    pick.onclick=function(e){ e.stopPropagation(); if(wrap.classList.contains("open")) close(); else open(); };
-    onValue(key,function(v){ setVal(num(v)); });
-    setVal(num(state.values[key]||0)); return wrap;
-  }
-  function makeToggle(key,m,opts,nm){
-    var wrap=el("div","ctl"); wrap.appendChild(lbl(nm,m.name));
-    var sw=el("div","sw"); sw.appendChild(el("div","dot")); var val=el("span","val");
-    function draw(v){ var on=num(v)>=1; sw.classList.toggle("on",on); val.textContent=on?opts[1]:opts[0]; }
-    sw.onclick=function(){ var on=!sw.classList.contains("on"); setParam(key,on?1:0); draw(on?1:0); };
-    onValue(key,function(v){ draw(v); });
-    wrap.appendChild(sw); wrap.appendChild(val); draw(state.values[key]||0); return wrap;
-  }
-  function makeControl(key,strip){
-    var m=PARAMS[key]; if(!m){ console.warn("unknown param",key); return null; }
-    if(m.model>state.level) return null;
-    var nm=LABELS[key]||shortName(m.name,strip);
-    /* Virus A has only the delay (no reverb decay) — drop the reverb wording. */
-    if(state.level<1 && key==="delay_rate_rev_decay") nm="Delay Rate";
-    var node = m.opts ? (isOffOn(OPTS[m.opts]||[]) ? makeToggle(key,m,OPTS[m.opts]||[],nm) : makeSelect(key,m,OPTS[m.opts]||[],nm))
-                      : makeKnob(key,m,nm);
-    if(node) node.setAttribute("data-pk",key);
-    return node;
-  }
-  function makeDividerEl(d){ var e=el("div","divider "+(d.orient==="h"?"dh":"dv"));
-    if(d.orient==="v") e.style.cssText="position:absolute;left:"+(d.pos*CW-1.5)+"px;top:"+(d.start*RH)+"px;height:"+((d.end-d.start)*RH)+"px;width:3px";
-    else e.style.cssText="position:absolute;top:"+(d.pos*RH-1.5)+"px;left:"+(d.start*CW)+"px;width:"+((d.end-d.start)*CW)+"px;height:3px";
-    return e; }
+  function optText(m,v){ if(!m.opts) return ""; var a=OPTS[m.opts]||[]; return a[v]!==undefined?a[v]:String(v); }
+  function lblText(key,m){ if(LABELS[key]) return LABELS[key];
+    var n=m.name;
+    n=n.replace(/^Osc[123]?\s/i,"").replace(/^Filt[12]?\s/i,"").replace(/^Flt\s/i,"").replace(/^LFO[123]\s/i,"")
+       .replace(/^Amp\s/i,"").replace(/^Chorus\s/i,"").replace(/^Phaser\s/i,"").replace(/^Delay\s/i,"")
+       .replace(/^Arp\s/i,"").replace(/^Unison\s/i,"").replace(/^Sub\s/i,"").replace(/^Mid EQ\s/i,"Mid ").replace(/^Lo EQ\s/i,"Lo ").replace(/^Hi EQ\s/i,"Hi ");
+    return n.trim()||m.name; }
 
-  // ---- subtle per-section color coding (cued from the Virus panel) ----
-  // Neighboring groups never share a hue. LFO blocks (incl. "LFO n → Mod")
-  // matched by prefix so the arrow glyph isn't a matching hazard.
-  // Per-section HEADER shade — black/gray only (panels themselves are all red).
-  // Four levels assigned so no two adjacent sections share a shade.
-  var K1="20,20,22", K2="46,46,50", K3="74,74,80", K4="104,104,110";
-  var BLOCK_ACCENT = {
-    "Osc 1":K1,"Osc 2":K1,"Mixer":K1,"Unison":K1,
-    "Common":K1,"Patch / Output":K1,                         // oscillators / mixer / output
-    "Filter 1":K2,"Filter 2":K2,"Filter Routing":K2,
-    "Amp Envelope":K3,"Filter Envelope":K3,
-    "Velocity Mod":K4,
-    "Assign":K2,
-    "Arpeggiator":K3,
-    "Chorus":K4,"Delay / Reverb":K4
-  };
-  function accentFor(title){ return K3; }   // uniform header shade (the Amp Envelope gray) — dark per-section shades blended into the bg
+  /* ---- zone layout (signal-flow grouping + model gating via PARAMS[].model) ---- */
+  function ZONES(){ return [
+    { id:"osc", label:"Oscillators", cards:[
+      { t:"Oscillator 1", keys:["osc1_wave_select","osc1_shape","osc1_pulsewidth","osc1_semitone","osc1_keyfollow"] },
+      { t:"Oscillator 2", keys:["osc2_wave_select","osc2_shape","osc2_pulsewidth","osc2_semitone","osc2_detune","osc2_sync","osc_fm_mode","osc2_fm_amount","osc2_filt_env_amt","fm_filt_env_amt","osc2_keyfollow"] },
+      { t:"Oscillator 3", keys:["osc3_mode","osc3_volume","osc3_semitone","osc3_detune"] },
+      { t:"Mixer", keys:["osc_balance","osc_mainvolume","sub_osc_volume","sub_osc_shape","noise_volume","noise_color","ringmod_volume","osc_init_phase","punch_intensity"] }
+    ]},
+    { id:"filter", label:"Filters", scope:"filter", cards:[
+      { t:"Filter 1", keys:["cutoff","filter1_resonance","filter1_env_amt","filter1_keyfollow","filter1_mode","filter1_env_polarity"] },
+      { t:"Filter 2", keys:["cutoff2_offset","filter2_resonance","filter2_env_amt","filter2_keyfollow","filter2_mode","filter2_env_polarity","filter2_cutoff_link"] },
+      { t:"Routing & Saturation", keys:["filter_routing","filter_select","filter_balance","saturation_curve","filter_keytrack_base"] }
+    ]},
+    { id:"env", label:"Envelopes", scope:"env", cards:[
+      { t:"Amplifier", keys:["amp_attack","amp_decay","amp_sustain","amp_sustain_time","amp_release"] },
+      { t:"Filter", keys:["flt_attack","flt_decay","flt_sustain","flt_sustain_time","flt_release"] },
+      { t:"Velocity Modulation", keys:["osc1_shape_velocity","osc2_shape_velocity","pulsewidth_velocity","fm_amount_velocity","flt1_envamt_velocity","flt2_envamt_velocity","resonance1_velocity","resonance2_velocity","amp_velocity","panorama_velocity"] }
+    ]},
+    { id:"lfo", label:"LFOs", cards:[
+      { t:"LFO 1", keys:["lfo1_rate","lfo1_clock","lfo1_shape","lfo1_mode","lfo1_env_mode","lfo1_symmetry","lfo1_keyfollow","lfo1_keytrigger"] },
+      { t:"LFO 1 → Routing", keys:["osc1_lfo1_amount","osc2_lfo1_amount","pw_lfo1_amount","reso_lfo1_amount","filtgain_lfo1_amount","lfo1_assign_dest","lfo1_assign_amount"] },
+      { t:"LFO 2", keys:["lfo2_rate","lfo2_clock","lfo2_shape","lfo2_mode","lfo2_env_mode","lfo2_symmetry","lfo2_keyfollow","lfo2_keytrigger"] },
+      { t:"LFO 2 → Routing", keys:["shape_lfo2_amount","fm_lfo2_amount","cutoff1_lfo2_amount","cutoff2_lfo2_amount","pan_lfo2_amount","lfo2_assign_dest","lfo2_assign_amount"] },
+      { t:"LFO 3", keys:["lfo3_rate","lfo3_clock","lfo3_shape","lfo3_mode","lfo3_keyfollow","lfo3_fadein_time"] },
+      { t:"LFO 3 → Routing", keys:["lfo3_destination","osc_lfo3_amount"] }
+    ]},
+    { id:"mod", label:"Mod Matrix", cards:[ { matrix:true } ] },
+    { id:"fx", label:"Effects", cards:[
+      { t:"Chorus", keys:["chorus_mix","chorus_rate","chorus_depth","chorus_delay","chorus_feedback","chorus_lfo_shape"] },
+      { t:"Delay / Reverb", keys:["delay_reverb_mode","effect_send","delay_time","delay_rate_rev_decay","delay_feedback","delay_depth","delay_color","delay_lfo_shape","delay_clock"] },
+      { t:"Phaser", keys:["phaser_mode","phaser_mix","phaser_rate","phaser_depth","phaser_frequency","phaser_feedback","phaser_spread"] },
+      { t:"3-Band EQ", keys:["low_eq_gain","low_eq_freq","mid_eq_gain","mid_eq_freq","mid_eq_q","high_eq_gain","high_eq_freq"] },
+      { t:"Distortion & Boost", keys:["distortion_curve","distortion_intensity","input_ringmod","bass_intensity","bass_tune"] }
+    ]},
+    { id:"voice", label:"Arp · Voice", cards:[
+      { t:"Arpeggiator", keys:["arp_mode","arp_pattern","arp_octave_range","arp_hold","arp_note_length","arp_swing","arp_clock","clock_tempo"] },
+      { t:"Unison", keys:["unison_mode","unison_detune","unison_pan_spread","unison_lfo_phase"] },
+      { t:"Input & Vocoder", keys:["input_mode","input_follower_mode","vocoder_mode"] },
+      { t:"Voice / Output", keys:["patch_volume","panorama","key_mode","transpose","portamento_time","bender_range_up","bender_range_down"] }
+    ]}
+  ]; }
+  function MATRIX(){ return [
+    { n:1, src:"assign1_source", pairs:[["assign1_destination","assign1_amount"]] },
+    { n:2, src:"assign2_source", pairs:[["assign2_dest1","assign2_amount1"],["assign2_dest2","assign2_amount2"]] },
+    { n:3, src:"assign3_source", pairs:[["assign3_dest1","assign3_amount1"],["assign3_dest2","assign3_amount2"],["assign3_dest3","assign3_amount3"]] },
+    { n:4, src:"assign4_source", pairs:[["assign4_destination","assign4_amount"]] },
+    { n:5, src:"assign5_source", pairs:[["assign5_destination","assign5_amount"]] },
+    { n:6, src:"assign6_source", pairs:[["assign6_destination","assign6_amount"]] }
+  ]; }
 
-  // ---- build the scaled canvas of absolute blocks ----
+  /* ---- controls ---- */
+  function knob(key,m){
+    var min=m.min,max=m.max; if(max<=min)max=min+1;
+    var bip=!!BIPOLAR[key],center=64,signed=bip||min<0, range=max-min;
+    var cell=el("div","k"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var ring=el("div","ring"); var svg=ns("svg",{viewBox:"0 0 40 40"});
+    var tk="",N=11,i; for(i=0;i<N;i++){ var dd=-135+i*(270/(N-1)); var bigT=(i===0||i===N-1||i===5);
+      var a=polar(20,20,17.4,dd), b=polar(20,20,bigT?13.8:15.2,dd); tk+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
+    svg.appendChild(ns("path",{"class":"ktick",d:tk}));
+    svg.appendChild(ns("path",{"class":"rt",d:arc(20,20,17.4,-135,135)}));
+    var fill=ns("path",{"class":"rf"}); svg.appendChild(fill);
+    svg.appendChild(ns("circle",{cx:20,cy:20,r:11.3,fill:"url(#kcap)",stroke:"rgba(0,0,0,.6)","stroke-width":".8",style:"filter:drop-shadow(0 1.3px 1.3px rgba(0,0,0,.55))"}));
+    svg.appendChild(ns("ellipse",{cx:16.6,cy:15.4,rx:5.6,ry:3.3,fill:"var(--gloss)"}));
+    var ptr=ns("line",{"class":"rk"}); svg.appendChild(ptr);
+    ring.appendChild(svg); cell.appendChild(ring);
+    var rv=el("div","rv"); cell.appendChild(rv);
+    function draw(){
+      var v=Math.max(min,Math.min(max,val(key)));
+      var frac=(v-min)/(max-min),deg=-135+frac*270, degC=bip?(-135+(center-min)/(max-min)*270):-135;
+      fill.setAttribute("d", bip?arc(20,20,17.4,Math.min(deg,degC),Math.max(deg,degC)):arc(20,20,17.4,-135,deg));
+      var pe=polar(20,20,10.2,deg), pi=polar(20,20,3.4,deg);
+      ptr.setAttribute("x1",pi[0].toFixed(2)); ptr.setAttribute("y1",pi[1].toFixed(2)); ptr.setAttribute("x2",pe[0].toFixed(2)); ptr.setAttribute("y2",pe[1].toFixed(2));
+      var disp=bip?Math.round(v)-center:Math.round(v); rv.textContent=(signed&&disp>0?"+":"")+disp;
+    }
+    draw(); bind(key,draw);
+    ring.addEventListener("wheel",function(e){ e.preventDefault();
+      var step=e.shiftKey?1:Math.max(1,Math.round(range/48));
+      setVal(key, val(key)-Math.sign(e.deltaY)*step); },{passive:false});
+    ring.addEventListener("pointerdown",function(e){ e.preventDefault(); closeMenu();
+      var startY=e.clientY, startV=val(key); try{ring.setPointerCapture(e.pointerId);}catch(_){}
+      function mv(ev){ var dy=startY-ev.clientY; setVal(key, startV+dy*(range/150)*(ev.shiftKey?0.25:1)); }
+      function up(){ ring.removeEventListener("pointermove",mv); ring.removeEventListener("pointerup",up); }
+      ring.addEventListener("pointermove",mv); ring.addEventListener("pointerup",up); });
+    ring.addEventListener("dblclick",function(){ setVal(key, bip?center:Math.round((min+max)/2)); });
+    return cell;
+  }
+  function select(key,m){
+    var wide=(m.opts==="opts_mod_dest"||m.opts==="opts_mod_source"||m.opts==="opts_delay_reverb_mode");
+    var cell=el("div","k sel"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var chip=el("div","chip"+(wide?" wide":"")); chip.appendChild(el("span","led"));
+    var cv=el("span","cv"); chip.appendChild(cv); chip.appendChild(el("span","ca"));
+    cell.appendChild(chip);
+    function draw(){ cv.textContent=optText(m,val(key)); }
+    draw(); bind(key,draw);
+    chip.addEventListener("click",function(e){ e.stopPropagation(); if(_menu&&_menuOwner===chip){ closeMenu(); return; } openMenu(chip,key,m); });
+    return cell;
+  }
+  function toggle(key,m){
+    var opts=OPTS[m.opts]||["Off","On"];
+    var cell=el("div","k tg"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var b=el("div","tgl"); b.appendChild(el("span","l")); cell.appendChild(b);
+    var st=el("div","st"); cell.appendChild(st);
+    function draw(){ var on=val(key)>=1; cell.classList.toggle("on",on); b.classList.toggle("on",on); st.textContent=on?opts[1]:opts[0]; }
+    draw(); bind(key,draw);
+    cell.style.cursor="pointer";
+    cell.addEventListener("click",function(){ setVal(key, val(key)>=1?0:1); });
+    return cell;
+  }
+  function openMenu(anchor,key,m){
+    closeMenu(); var menu=el("div","selmenu");
+    var opts=OPTS[m.opts]||[], cur=val(key);
+    opts.forEach(function(label,i){ var it=el("div","selopt"+(i===cur?" on":""),label);
+      it.addEventListener("click",function(e){ e.stopPropagation(); setVal(key,i); closeMenu(); });
+      menu.appendChild(it); });
+    document.body.appendChild(menu);
+    var r=anchor.getBoundingClientRect();
+    menu.style.left=Math.min(r.left, window.innerWidth-menu.offsetWidth-8)+"px";
+    var below=window.innerHeight-r.bottom-12;
+    if(menu.offsetHeight>below && r.top>below){ menu.style.maxHeight=Math.min(300,r.top-12)+"px"; menu.style.top=""; menu.style.bottom=(window.innerHeight-r.top+4)+"px"; }
+    else { menu.style.maxHeight=Math.min(300,below)+"px"; menu.style.top=(r.bottom+4)+"px"; }
+    var on=menu.querySelector(".selopt.on"); if(on) menu.scrollTop=on.offsetTop-menu.clientHeight/2;
+    _menu=menu; _menuOwner=anchor;
+  }
+  function closeMenu(){ if(_menu){ _menu.remove(); _menu=null; _menuOwner=null; } }
+  function control(key){
+    var m=PARAMS[key]; if(!m||(m.model||0)>state.level) return null;
+    if(m.opts){ var arr=OPTS[m.opts]; return (arr&&isOffOn(arr))?toggle(key,m):select(key,m); }
+    return knob(key,m);
+  }
+
+  /* ---- scopes ---- */
+  function liveScope(buildFn, watch){
+    var holder=el("div","scopeholder");
+    function rebuild(){ holder.innerHTML=""; holder.appendChild(buildFn()); }
+    rebuild(); watch.forEach(function(k){ onValue(k,rebuild); });
+    return holder;
+  }
+  function dispSvg(W,H){ var d=el("div","disp"); d.style.width=W+"px"; d.style.height=H+"px"; var svg=ns("svg",{viewBox:"0 0 "+W+" "+H,preserveAspectRatio:"none"}); d._svg=svg; d.appendChild(svg); return d; }
+  function grid(svg,W,H,n){ for(var i=1;i<n;i++){ var x=W*i/n; svg.appendChild(ns("line",{"class":"gline",x1:x,y1:0,x2:x,y2:H})); }
+    svg.appendChild(ns("line",{"class":"gline",x1:0,y1:H/2,x2:W,y2:H/2})); }
+  function poly(pts){ return "M"+pts.map(function(p){return p[0].toFixed(1)+","+p[1].toFixed(1);}).join(" L"); }
+  function vbig(n,lbl){ var d=el("div","vbig"); d.textContent=n; var s=el("span",null,lbl); d.appendChild(s); return d; }
+
+  function filterScope(){
+    var W=300,H=66,pad=6,top=pad,bot=H-pad;
+    var cut=val("cutoff"),reso=val("filter1_resonance"),mode=val("filter1_mode");
+    var padX=8;
+    var disp=dispSvg(W,H), svg=disp._svg;
+    var SPAN=3.4, fcN=0.10+(cut/127)*0.80, Q=0.62+(reso/127)*(reso/127)*14.5;
+    var DBMAX=18, DBMIN=-44;
+    function ydb(db){ return top + (DBMAX-db)/(DBMAX-DBMIN)*(bot-top); }
+    var type,poles;
+    if(mode===1){ type="HP"; poles=2; }
+    else if(mode===2){ type="BP"; poles=2; }
+    else if(mode===3){ type="BS"; poles=2; }
+    else if(mode>=4){ type="LP"; poles=mode-3; }
+    else { type="LP"; poles=4; }
+    var L10=Math.LN10;
+    function mag(r){
+      var lr=Math.log(r)/L10, sig=0.17;
+      var peak=Math.max(0,(Q-0.7))*1.05*Math.exp(-(lr*lr)/(2*sig*sig)), roll;
+      if(type==="LP"){ roll=-10*Math.log(1+Math.pow(r,2*poles))/L10; }
+      else if(type==="HP"){ roll=-10*Math.log(1+Math.pow(1/r,2*poles))/L10; }
+      else if(type==="BP"){ var x=r-1/r; roll=-10*Math.log(1+x*x*9)/L10; peak=Math.max(0,(Q-0.7))*0.7*Math.exp(-(lr*lr)/(2*0.2*0.2)); }
+      else { var n=1-r*r, q=r/Math.max(0.5,Q); roll=10*Math.log((n*n)/((n*n)+q*q)+1e-4)/L10; peak=0; }
+      return roll+peak;
+    }
+    for(var gx=1;gx<6;gx++){ var GX=padX+(gx/6)*(W-2*padX); svg.appendChild(ns("line",{"class":"gline",x1:GX,y1:top,x2:GX,y2:bot})); }
+    svg.appendChild(ns("line",{"class":"gline",x1:padX,y1:ydb(0).toFixed(1),x2:W-padX,y2:ydb(0).toFixed(1)}));
+    var pts=[]; for(var i=0;i<=140;i++){ var xN=i/140, r=Math.pow(10,(xN-fcN)*SPAN), db=mag(r);
+      db=Math.max(DBMIN,Math.min(DBMAX,db)); pts.push([padX+xN*(W-2*padX), ydb(db)]); }
+    var d2=poly(pts);
+    var area=d2+" L"+(W-padX)+","+bot+" L"+padX+","+bot+" Z";
+    svg.appendChild(ns("path",{"class":"carea",d:area,fill:"var(--acc)",stroke:"none"}));
+    svg.appendChild(ns("path",{"class":"curve a",d:d2}));
+    var fx=padX+fcN*(W-2*padX);
+    svg.appendChild(ns("line",{x1:fx,y1:top,x2:fx,y2:bot,stroke:"var(--acc)","stroke-width":"1","stroke-dasharray":"2 3",opacity:".5"}));
+    var leg=el("div","leg");
+    var modes=OPTS.opts_filter1_mode;
+    var slope=(type==="LP"||type==="HP")?(poles*6)+" dB/oct":(type==="BP"?"band-pass":"notch");
+    leg.appendChild(vbig(Math.round(cut),"cutoff"));
+    var r1=el("div","lr"); r1.innerHTML='Mode <b>'+modes[mode]+'</b>'; leg.appendChild(r1);
+    var r2=el("div","lr"); r2.innerHTML='Reso <b>'+Math.round(reso)+'</b>  ·  <b>'+slope+'</b>'; leg.appendChild(r2);
+    var w=el("div","scope"); w.appendChild(disp); w.appendChild(leg); return w;
+  }
+  function envCell(prefix,cls,label){
+    var W=362,H=64,pad=6,top=pad,bot=H-pad, segW=W-2*pad;
+    var FA=segW*0.22, FD=segW*0.22, FS=segW*0.20, FR=segW*0.22;
+    var col=cls==="a"?"var(--acc)":"var(--acc2)";
+    var disp=dispSvg(W,H), svg=disp._svg; grid(svg,W,H,4);
+    var area=ns("path",{"class":"carea",fill:col,stroke:"none"}); svg.appendChild(area);
+    var line=ns("path",{"class":"curve "+cls,"vector-effect":"non-scaling-stroke"}); svg.appendChild(line);
+    function geom(){
+      var a=val(prefix+"_attack"),d=val(prefix+"_decay"),s=val(prefix+"_sustain"),st=val(prefix+"_sustain_time"),r=val(prefix+"_release");
+      var x0=pad,x1=x0+4+(a/127)*FA,x2=x1+4+(d/127)*FD,x3=x2+6+(st/127)*FS,sy=bot-(s/127)*(bot-top);
+      var x4=Math.min(W-pad,x3+4+(r/127)*FR);
+      return {x0:x0,x1:x1,x2:x2,x3:x3,x4:x4,sy:sy};
+    }
+    var handles=[
+      {sx:"_attack",f:FA,axis:"x",gx:"x1",gy:function(){return top;}},
+      {sx:"_decay",f:FD,axis:"x",gx:"x2",gy:function(g){return g.sy;},sy:"_sustain"},
+      {sx:"_sustain_time",f:FS,axis:"x",gx:"x3",gy:function(g){return g.sy;}},
+      {sx:"_release",f:FR,axis:"x",gx:"x4",gy:function(){return bot;}}
+    ];
+    var hEls=handles.map(function(){ var hit=ns("circle",{r:9,fill:"transparent",style:"cursor:grab"});
+      var dot=ns("circle",{r:3,fill:col,stroke:"#0a0b0c","stroke-width":"1"}); svg.appendChild(hit); svg.appendChild(dot); return {hit:hit,dot:dot}; });
+    function draw(){ var g=geom();
+      var pts=[[g.x0,bot],[g.x1,top],[g.x2,g.sy],[g.x3,g.sy],[g.x4,bot]];
+      line.setAttribute("d",poly(pts));
+      area.setAttribute("d",poly(pts)+" L"+g.x4.toFixed(1)+","+bot+" L"+g.x0+","+bot+" Z");
+      handles.forEach(function(h,i){ var cx=g[h.gx], cy=h.gy(g);
+        hEls[i].hit.setAttribute("cx",cx); hEls[i].hit.setAttribute("cy",cy);
+        hEls[i].dot.setAttribute("cx",cx); hEls[i].dot.setAttribute("cy",cy); });
+    }
+    draw();
+    [prefix+"_attack",prefix+"_decay",prefix+"_sustain",prefix+"_sustain_time",prefix+"_release"].forEach(function(k){ bind(k,draw); });
+    handles.forEach(function(h,i){
+      hEls[i].hit.addEventListener("pointerdown",function(e){ e.preventDefault(); e.stopPropagation(); closeMenu();
+        var sx0=e.clientX, sy0=e.clientY, sA=val(prefix+h.sx), sS=h.sy?val(prefix+h.sy):0;
+        try{hEls[i].hit.setPointerCapture(e.pointerId);}catch(_){}
+        function mv(ev){ setVal(prefix+h.sx, sA+(ev.clientX-sx0)/h.f*127);
+          if(h.sy) setVal(prefix+h.sy, sS-(ev.clientY-sy0)/(bot-top)*127); }
+        function up(){ hEls[i].hit.removeEventListener("pointermove",mv); hEls[i].hit.removeEventListener("pointerup",up); }
+        hEls[i].hit.addEventListener("pointermove",mv); hEls[i].hit.addEventListener("pointerup",up); });
+    });
+    var cell=el("div","gcell");
+    var gl=el("div","gl"); gl.innerHTML='<i style="background:'+col+'"></i>'+label+'  <em style="font-style:normal;opacity:.55;font-weight:600">drag points</em>'; cell.appendChild(gl);
+    cell.appendChild(disp); return cell;
+  }
+  function envScope(){
+    var row=el("div","scoperow between");
+    [["amp","a","Amplifier"],["flt","b","Filter"]].forEach(function(c){
+      var card=el("div","scope"); card.appendChild(envCell(c[0],c[1],c[2])); row.appendChild(card); });
+    return row;
+  }
+
+  function amtBar(key){
+    var wrap=el("div","amt"),bar=el("div","bar"); bar.appendChild(el("div","mid"));
+    var f=el("div","fil"); bar.appendChild(f); var vt=el("div","v");
+    function draw(){ var v=val(key),disp=v-64,frac=Math.abs(disp)/63,w=frac*50;
+      f.style.left=(disp>=0?"50%":(50-w)+"%"); f.style.width=w+"%"; vt.textContent=(disp>0?"+":"")+disp; }
+    draw(); bind(key,draw);
+    wrap.appendChild(bar); wrap.appendChild(vt);
+    bar.style.cursor="ew-resize"; bar.style.touchAction="none";
+    bar.addEventListener("pointerdown",function(e){ e.preventDefault(); closeMenu(); try{bar.setPointerCapture(e.pointerId);}catch(_){}
+      function set(ev){ var r=bar.getBoundingClientRect(); var fr=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width)); setVal(key,Math.round(fr*127)); }
+      set(e); function mv(ev){ set(ev); } function up(){ bar.removeEventListener("pointermove",mv); bar.removeEventListener("pointerup",up); }
+      bar.addEventListener("pointermove",mv); bar.addEventListener("pointerup",up); });
+    return wrap;
+  }
+  function matrixChip(key){
+    var m=PARAMS[key];
+    var chip=el("div","chip"); chip.appendChild(el("span","led"));
+    var cv=el("span","cv"); chip.appendChild(cv); chip.appendChild(el("span","ca"));
+    function draw(){ cv.textContent=optText(m,val(key)); }
+    draw(); bind(key,draw);
+    chip.addEventListener("click",function(e){ e.stopPropagation(); if(_menu&&_menuOwner===chip){ closeMenu(); return; } openMenu(chip,key,m); });
+    return chip;
+  }
+  function matrixEl(){
+    var wrap=el("div","mx"), any=false;
+    MATRIX().forEach(function(slot){
+      var sm=PARAMS[slot.src]; if((sm.model||0)>state.level) return; any=true;
+      var row=el("div","mr"); row.appendChild(el("div","n",String(slot.n)));
+      var src=el("div","src"); src.appendChild(matrixChip(slot.src)); row.appendChild(src);
+      var flow=el("div","flow");
+      slot.pairs.forEach(function(p){
+        var dp=el("div","dp"); dp.appendChild(el("span","ar","→"));
+        dp.appendChild(matrixChip(p[0]));
+        dp.appendChild(amtBar(p[1])); flow.appendChild(dp); });
+      row.appendChild(flow); wrap.appendChild(row);
+    });
+    return any?wrap:null;
+  }
+
+  function sectionEl(zone,idx){
+    var groups=[], hasMatrix=false;
+    if(zone.cards.length===1 && zone.cards[0].matrix){ var mx=matrixEl(); if(!mx) return null; hasMatrix=mx; }
+    else {
+      zone.cards.forEach(function(cd){
+        var ctls=el("div","ctls"), has=false;
+        cd.keys.forEach(function(k){ var n=control(k); if(n){ ctls.appendChild(n); has=true; } });
+        if(!has) return;
+        var g=el("div","grp"); if(cd.t) g.appendChild(el("div","gcap",cd.t)); g.appendChild(ctls); groups.push(g);
+      });
+      if(!groups.length) return null;
+    }
+    var sec=el("section","sec"); sec.id="z-"+zone.id;
+    ["tl","tr","bl","br"].forEach(function(c){ sec.appendChild(el("span","scr "+c)); });
+    var h=el("div","shd"); h.appendChild(el("span","led"));
+    h.appendChild(el("span","no",("0"+idx).slice(-2)));
+    h.appendChild(el("h2",null,zone.label)); h.appendChild(el("span","rule")); sec.appendChild(h);
+    if(zone.scope==="filter") sec.appendChild(liveScope(filterScope,["cutoff","filter1_resonance","filter1_mode"]));
+    else if(zone.scope==="env") sec.appendChild(envScope());
+    if(hasMatrix){ sec.appendChild(hasMatrix); }
+    else if(zone.id==="env" && groups.length>=2){
+      var gr=el("div","grprow"); gr.appendChild(groups[0]); gr.appendChild(groups[1]); sec.appendChild(gr);
+      for(var gi=2;gi<groups.length;gi++) sec.appendChild(groups[gi]);
+    } else if(zone.id==="lfo"){
+      for(var li=0;li<groups.length;li+=2){ var box=el("div","lfobox"); box.appendChild(groups[li]); if(groups[li+1]) box.appendChild(groups[li+1]); sec.appendChild(box); }
+    } else { groups.forEach(function(g){ sec.appendChild(g); }); }
+    return sec;
+  }
+
+  /* ---- build / scrollspy / osc-shape dimming ---- */
   function build(){
-    if(state.built) return; state.built=true;
-    var main=document.getElementById("main"), tabs=document.getElementById("tabs");
-    var wrap=el("div","pagewrap"); var canvas=el("div","canvas"); canvas.style.width=DESIGN_W+"px";
-    state.canvas=canvas; state.wrap=wrap; state.bandFirst={}; var stretch=[];
-    LAYOUT.blocks.forEach(function(block){
-      var strip=stripFor(block.title), nodes=[], any=false, maxR=0, maxC=0, minC=Infinity, rowSel=[], rowHas=[], rowKnob=[];
-      (block.controls||[]).forEach(function(c){
-        var node=makeControl(c.key,strip); if(!node) return; any=true;
-        node.style.left=(c.col*CW)+"px"; node.style.width=(c.span*CW-4)+"px"; node.dataset.row=c.row;
-        nodes.push(node); if(c.row+1>maxR)maxR=c.row+1; if(c.col+c.span>maxC)maxC=c.col+c.span; if(c.col<minC)minC=c.col;
-        if(rowSel[c.row]===undefined) rowSel[c.row]=true;
-        if(!node.classList.contains("sel")) rowSel[c.row]=false;   // any knob/toggle → full-height row
-        if(node.querySelector(".knobsvg")) rowKnob[c.row]=true;     // row has a knob
-        rowHas[c.row]=true;
-      });
-      if(!any) return;                                  // fully model-gated → skip block
-      // Stack rows with per-row pitch (SHORT for picker-only rows, RH otherwise).
-      var rowTop=[], yy=0;
-      for(var r=0;r<maxR;r++){ rowTop[r]=yy; if(rowHas[r]) yy+=(rowSel[r]?SHORT:RH); }
-      nodes.forEach(function(n){ n.style.top=rowTop[+n.dataset.row]+"px"; });
-      // Vertically centre pickers/switches that share a row with a knob: the knob
-      // circle sits ~ALIGN px lower in its box than a select/switch, so push only
-      // the control element (not its label) down to match the knob centre. The
-      // switch value rides down with it. Picker/switch-only rows are untouched.
-      nodes.forEach(function(n){
-        if(!rowKnob[+n.dataset.row] || n.querySelector(".knobsvg")) return;
-        var sel=n.querySelector(".pick"), sw=n.querySelector(".sw");
-        if(sel) sel.style.marginTop="8px";        // 16px picker centred on the knob
-        else if(sw) sw.style.marginTop="4px";     // 24px switch is taller → push less
-      });
-      var card=el("div","block"); card.style.left=(block.x*BX)+"px"; card.style.top=(block.y*BY)+"px";
-      var ac=accentFor(block.title); if(ac) card.style.setProperty("--accent",ac);
-      var head=el("div","bhead"); head.appendChild(el("span","led")); head.appendChild(el("span","t",block.title)); card.appendChild(head);
-      var bodyEl=el("div","controls");
-      var bw=Math.max(maxC*CW, (block.w||0)*CW/56);
-      var mnC=(minC===Infinity?0:minC), contentW=(maxC-mnC)*CW;
-      var offX=(bw-contentW)/2 - mnC*CW;   // centre the param cluster as a unit, accounting for its start column
-      bodyEl.style.width=bw+"px"; bodyEl.style.height=yy+"px";   // provisional; hug pass below tightens it
-      nodes.forEach(function(n){ n.style.left=(parseFloat(n.style.left)+offX)+"px"; bodyEl.appendChild(n); });
-      (block.dividers||[]).forEach(function(d){ var dv=makeDividerEl(d); dv.style.left=(parseFloat(dv.style.left||0)+offX)+"px"; bodyEl.appendChild(dv); });
-      card.appendChild(bodyEl); canvas.appendChild(card);
-      stretch.push({card:card, body:bodyEl});
-      var sec=sectionFor(block.title), bf=state.bandFirst[sec];
-      if(!bf || block.y<bf.y) state.bandFirst[sec]={y:block.y, card:card};
+    var main=document.getElementById("main"), rail=document.getElementById("rail"); if(!main) return;
+    main.innerHTML=""; rail.innerHTML=""; zoneEls={}; closeMenu(); var idx=0;
+    ZONES().forEach(function(zone){
+      idx++; var sec=sectionEl(zone, idx); if(!sec) return;
+      main.appendChild(sec); zoneEls[zone.id]=sec;
+      var a=el("a"); a.dataset.zone=zone.id; a.appendChild(el("span","d")); a.appendChild(el("span",null,zone.label));
+      a.onclick=function(){ var y=sec.getBoundingClientRect().top+window.scrollY-100; window.scrollTo({top:Math.max(0,y),behavior:"smooth"}); };
+      rail.appendChild(a);
     });
-    wrap.appendChild(canvas); main.appendChild(wrap);
-    // Equalise each block's bottom margin to its top margin (the header gap): hug
-    // the body to its real control-content bottom + BMAR. Guarded so dividers
-    // are never clipped.
-    var BMAR=6;   // bottom margin below the last value/picker, tuned so the gap to
-                  // the block edge matches the header→label-text gap at top (labels
-                  // are bottom-aligned in their box, so the top gap is ~10px)
-    stretch.forEach(function(A){
-      var cb=0, db=0, kids=A.body.children;
-      for(var i=0;i<kids.length;i++){ var e=kids[i], b=e.offsetTop+e.offsetHeight;
-        if(e.className&&e.className.indexOf("divider")>=0){ if(b>db)db=b; } else if(b>cb)cb=b; }
-      if(cb>0) A.body.style.height=Math.max(cb+BMAR, db)+"px";
-    });
-    // Gravity compaction: pull each block straight up until it rests GUT below the
-    // lowest already-placed block overlapping its column. Removes the inter-row
-    // gaps so every block hugs (bottom margin == top margin) with no trapped
-    // canvas pockets — and no panel-stretching needed. Columns/x are untouched.
-    var GUT=5;   // vertical gap between stacked blocks (and above/below fillers)
-    function pack(){
-      var placed=[];
-      stretch.map(function(s){return s.card;})
-        .sort(function(a,b){ return a.offsetTop-b.offsetTop; })
-        .forEach(function(card){
-          var al=card.offsetLeft, ar=al+card.offsetWidth, top=0;
-          placed.forEach(function(p){ if(p.l<ar-2 && al<p.r-2 && p.b+GUT>top) top=p.b+GUT; });
-          card.style.top=top+"px";
-          placed.push({l:al, r:ar, b:top+card.offsetHeight});
-        });
+    onValue("osc1_shape",shapeDim); onValue("osc2_shape",shapeDim);
+    shapeDim(); spy(); state.built=true;
+  }
+  function shapeDim(){ var main=document.getElementById("main"); if(!main) return;
+    [1,2].forEach(function(n){ var pulse=val("osc"+n+"_shape")>=64;
+      var w=main.querySelector('[data-pk="osc'+n+'_wave_select"]'); var p=main.querySelector('[data-pk="osc'+n+'_pulsewidth"]');
+      if(w) w.classList.toggle("dim",pulse); if(p) p.classList.toggle("dim",!pulse); });
+  }
+  function spy(){
+    var items=Object.keys(zoneEls).map(function(id){ return {id:id, el:zoneEls[id]}; });
+    function up(){ var line=110, cur=items[0]; if(!cur) return;
+      items.forEach(function(it){ if(it.el.getBoundingClientRect().top-line<=1) cur=it; });
+      var rail=document.getElementById("rail");
+      rail.querySelectorAll("a").forEach(function(a){ a.classList.toggle("on", a.dataset.zone===cur.id); });
     }
-    pack();
-    // Discrete block-size tweaks: extend a block's panel downward so its bottom
-    // lines up with a sibling's bottom (params stay put — only the panel grows).
-    var MATCH_BOTTOM={ "Mixer":"Common", "Filter 1":"Filter Routing", "Filter 2":"Filter Routing" };
-    var byTitle={};
-    stretch.forEach(function(s){ var t=s.card.querySelector(".bhead .t"); if(t) byTitle[t.textContent]=s; });
-    Object.keys(MATCH_BOTTOM).forEach(function(name){
-      var a=byTitle[name], b=byTitle[MATCH_BOTTOM[name]]; if(!a||!b) return;
-      var add=(b.card.offsetTop+b.card.offsetHeight)-(a.card.offsetTop+a.card.offsetHeight);
-      if(add>0) a.body.style.height=(a.body.offsetHeight+add)+"px";
-    });
-    pack();   // re-pack so the MATCH height changes propagate with uniform GUT gaps
-    // Fill trapped vertical gaps below short blocks with headerless filler panels:
-    // same column width as the block above, with a GUT gap above and below so the
-    // spacing matches everywhere else.
-    stretch.forEach(function(A){
-      var ac=A.card, al=ac.offsetLeft, aw=ac.offsetWidth, ar=al+aw, ab=ac.offsetTop+ac.offsetHeight, below=Infinity;
-      stretch.forEach(function(B){ if(B===A) return; var bc=B.card, bl=bc.offsetLeft, br=bl+bc.offsetWidth, bt=bc.offsetTop;
-        if(bl<ar-2 && al<br-2 && bt>=ab-2 && bt<below) below=bt; });
-      if(below===Infinity) return;
-      var h=(below-GUT)-(ab+GUT);
-      if(h<=2) return;                                   // only genuine trapped gaps
-      var f=el("div","block filler"); f.style.boxSizing="border-box";
-      f.style.left=al+"px"; f.style.top=(ab+GUT)+"px"; f.style.width=aw+"px"; f.style.height=h+"px";
-      canvas.appendChild(f);
-    });
-    BANDS.forEach(function(b,i){ if(!state.bandFirst[b.id]) return;
-      var t=el("div","tab",b.label); t.id="tab"+i;
-      t.onclick=function(){ var f=state.bandFirst[b.id]; if(!f) return;
-        // scroll only the iframe's own window (scrollIntoView would also scroll the parent page)
-        var tb=document.querySelector(".topbar"), off=(tb?tb.offsetHeight:60)+4;
-        var y=f.card.getBoundingClientRect().top + window.scrollY - off;
-        window.scrollTo({top:Math.max(0,y), behavior:"smooth"}); };
-      tabs.appendChild(t); });
-    // native canvas extent = lowest/rightmost block edges (blocks can sit past the
-    // nominal design width, so scale to whatever actually fits)
-    var maxB=0, maxR=0, ch=canvas.children;
-    for(var i=0;i<ch.length;i++){ var c=ch[i]; var bb=c.offsetTop+c.offsetHeight; if(bb>maxB)maxB=bb; var rr=c.offsetLeft+c.offsetWidth; if(rr>maxR)maxR=rr; }
-    state.designW=maxR+8; canvas.style.width=state.designW+"px";   // fit actual content width (zoom to fill)
-    canvas.style.height=(maxB+12)+"px"; state.designH=maxB+12;
-    setupOscShapeDim();
-    relayout(); setupScrollSpy();
-  }
-  // The Virus osc Shape knob crossfades [Wave Select] → Saw → [Pulse Width]:
-  // Wave Select is silent when Shape >= 64, Pulse Width is silent when Shape < 64.
-  // Dim whichever is currently sidelined so it's visually clear what's active.
-  function setupOscShapeDim(){
-    [1,2].forEach(function(n){
-      var shapeKey="osc"+n+"_shape";
-      var waveEl=state.canvas.querySelector('[data-pk="osc'+n+'_wave_select"]');
-      var pwEl=state.canvas.querySelector('[data-pk="osc'+n+'_pulsewidth"]');
-      if(!waveEl && !pwEl) return;
-      function apply(sv){ var pulse=sv>=64;
-        if(waveEl) waveEl.classList.toggle("pkdim", pulse);
-        if(pwEl)   pwEl.classList.toggle("pkdim", !pulse); }
-      onValue(shapeKey,function(v){ apply(num(v)); });
-      apply(num(state.values[shapeKey]||0));
-    });
-  }
-  function relayout(){
-    if(!state.canvas) return;
-    var avail=document.getElementById("main").clientWidth-2;
-    var z=parseFloat((document.getElementById("zoom")||{}).value)||1;   // header zoom slider
-    var target=Math.min(avail, TARGET_W);   // match OB-Xd width; never exceed the iframe (no clip on narrow)
-    var S=target/(state.designW||DESIGN_W)*z;
-    state.canvas.style.transform="scale("+S+")";
-    state.wrap.style.width=(state.designW*S)+"px";   // so >100% zoom scrolls horizontally
-    state.wrap.style.height=(state.designH*S)+"px";
-  }
-  var rT; window.addEventListener("resize",function(){ clearTimeout(rT); rT=setTimeout(relayout,120); });
-  document.getElementById("zoom").oninput=relayout;
-  // Deterministic scroll-spy: highlight the last section whose first card has
-  // passed under the sticky topbar. Works from first paint (OSC selected at top)
-  // and tracks every scroll — no IntersectionObserver transition needed.
-  function setupScrollSpy(){
-    var tops=[];
-    BANDS.forEach(function(b,j){ var f=state.bandFirst[b.id]; if(f) tops.push({id:b.id, j:j, card:f.card}); });
-    if(!tops.length) return;
-    function update(){
-      var tb=document.querySelector(".topbar");
-      var line=(tb?tb.getBoundingClientRect().bottom:60)+6;
-      var cur=tops[0];
-      for(var k=0;k<tops.length;k++){ if(tops[k].card.getBoundingClientRect().top - line <= 1) cur=tops[k]; }
-      BANDS.forEach(function(b,j){ var t=document.getElementById("tab"+j); if(t) t.classList.toggle("sel", b.id===cur.id); });
-    }
-    if(state._spy){ window.removeEventListener("scroll",state._spy); window.removeEventListener("resize",state._spy); }
-    state._spy=update;
-    window.addEventListener("scroll",update,{passive:true});
-    window.addEventListener("resize",update);
-    update();   // initial highlight (OSC at top)
+    if(_spy) window.removeEventListener("scroll",_spy);
+    _spy=up; window.addEventListener("scroll",up,{passive:true}); up();
   }
 
-  // ---- preset / bank / octave ----
-  function refreshBrowser(){
-    document.getElementById("pName").textContent=state.values["preset_name"]||"—";
-    var idx=num(state.values["patch_in_bank"]), cnt=num(state.values["preset_count"]);
-    document.getElementById("pIdx").textContent=cnt?idx+"/"+cnt:"";
-    document.getElementById("bName").textContent=state.values["bank_name"]||"—";
-    var o=num(state.values["octave_transpose"]); document.getElementById("oVal").textContent=(o>0?"+":"")+o;
+  /* ---- model skin + rebuild ---- */
+  function applyModel(lvl){
+    if(lvl==null) lvl=state.level; state.level=lvl;
+    var sk=SKINS[lvl], root=document.documentElement;
+    ["bg","surf","surf2","line","ink","mut","acc","acc2","led","val","track","skirt","ptr","cap1","cap2","chrome","chromeink","chromemut","cheek1","cheek2","lcdbg","lcdink","lcdframe","gloss","wellbd","wellring"].forEach(function(k){ root.style.setProperty("--"+k, sk[k]); });
+    var mn=document.getElementById("mName"); if(mn) mn.textContent=sk.name;
+    ["segA","segB","segC"].forEach(function(id,i){ var s=document.getElementById(id); if(s) s.classList.toggle("on", i===lvl); });
+    rebuild();
   }
-  // Preset/bank loads are applied ASYNC by the Virus's forked DSP child; the
-  // module's get_param("state") blocks until the child confirms the sync, so the
-  // manager's re-push already returns the new patch's values — no UI retry needed.
+  function rebuild(){ controls={}; state.built=false; build(); seedValues(); refreshBrowser(); }
+  function maybeRebuildForModel(name){ var lvl=/^c/i.test(name)?2:/^b/i.test(name)?1:0;
+    if(lvl!==state.level || !state.built) applyModel(lvl); }
+
+  /* ---- browser / preset / bank / octave ---- */
+  function refreshBrowser(){
+    var pn=document.getElementById("pName"); if(pn) pn.textContent=state.values["preset_name"]||"—";
+    var pm=document.getElementById("pMeta");
+    if(pm){ var bank=state.values["bank_name"]||"", idx=num(state.values["patch_in_bank"]), cnt=num(state.values["preset_count"]);
+      var s=bank; if(cnt) s+=(bank?" · ":"")+("00"+idx).slice(-3)+" / "+cnt; pm.textContent=s||"—"; }
+    var ov=document.getElementById("oVal"); if(ov){ var o=num(state.values["octave_transpose"]); ov.textContent=(o>0?"+":"")+o; }
+  }
   function stepPreset(d){ var i=num(state.values["preset"]), c=num(state.values["preset_count"])||1; i=(i+d+c)%c; setParam("preset",i); state.lastPreset=String(i); refreshBrowser(); patchResync(); }
-  function stepBank(d){ var i=num(state.values["bank_index"]), c=num(state.values["bank_count"])||1; i=(i+d+c)%c; setParam("bank_index",i); patchResync(); }
   function stepOctave(d){ var o=Math.max(-4,Math.min(4,num(state.values["octave_transpose"])+d)); setParam("octave_transpose",o); refreshBrowser(); }
 
   function applyParamUpdate(params){ if(!params) return; var b=false;
     Object.keys(params).forEach(function(fk){ var key=fk.indexOf(PREFIX)===0?fk.slice(PREFIX.length):fk; pushValue(key,params[fk]);
       if(/^(preset|preset_name|preset_count|patch_in_bank|bank_index|bank_name|octave_transpose|rom_model)$/.test(key)) b=true;
-      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; patchResync(); } }   // device-side preset change → pull fresh name
+      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; patchResync(); } }
       if(key==="bank_index"){ var bk=String(params[fk]); if(bk!==state.lastBank){ state.lastBank=bk; patchResync(); } }
       if(key==="rom_model") maybeRebuildForModel(params[fk]); });
     if(b) refreshBrowser();
   }
-  function maybeRebuildForModel(name){ var lvl=/^c/i.test(name)?2:/^b/i.test(name)?1:0;
-    document.getElementById("modelBadge").textContent=name&&name!=="?"?String(name).toUpperCase():"—";
-    if(lvl!==state.level && state.built){ state.level=lvl; rebuild(); } else state.level=lvl; }
-  function rebuild(){ controls={}; state.built=false; document.getElementById("main").innerHTML=""; document.getElementById("tabs").innerHTML=""; build(); seedValues(); }
-  function setStatus(t,c){ document.getElementById("statusText").textContent=t; document.getElementById("dot").className=c||""; }
   function resync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} if(state.built) seedValues(); }
-  // Preset/bank NAMES live in the module's SHM state blob and are updated by the
-  // forked-child DSP asynchronously after a program change; the manager's getParam
-  // is cache-only, so a single refresh reads a stale name. Re-pull the metadata on a
-  // stagger (re-subscribing so the manager re-reads slot state fresh) to catch the
-  // async name update. Light: only browser metadata, not all 185 params. Debounced
-  // so a burst of param updates schedules just one wave.
   function metaResync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} seedMeta(); }
   function patchResync(){ if(state._rsy) return; state._rsy=1;
     [200,500,1000,1800].forEach(function(ms){ setTimeout(metaResync,ms); });
     setTimeout(function(){ state._rsy=0; },1900); }
-
   function seedMeta(){
     ["rom_model","preset","preset_name","preset_count","patch_in_bank","bank_index","bank_name","bank_count","octave_transpose"].forEach(function(k){
       remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!==""){ if(k==="rom_model")maybeRebuildForModel(v); else state.values[k]=String(v); refreshBrowser(); } }); });
@@ -576,21 +672,32 @@ var LAYOUT = {"canvasWidth":1130,"snap":4,"cell":{"w":56,"h":68},"blocks":[{"ban
     (function next(){ var n=0; while(i<keys.length&&n<24){ (function(k){ remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!=="") pushValue(k,v); }); })(keys[i++]); n++; } if(i<keys.length) setTimeout(next,18); })();
   }
 
+  /* ---- header wiring ---- */
+  document.getElementById("segA").onclick=function(){ applyModel(0); };
+  document.getElementById("segB").onclick=function(){ applyModel(1); };
+  document.getElementById("segC").onclick=function(){ applyModel(2); };
   document.getElementById("pPrev").onclick=function(){ stepPreset(-1); };
   document.getElementById("pNext").onclick=function(){ stepPreset(1); };
-  document.getElementById("bPrev").onclick=function(){ stepBank(-1); };
-  document.getElementById("bNext").onclick=function(){ stepBank(1); };
   document.getElementById("oDown").onclick=function(){ stepOctave(-1); };
   document.getElementById("oUp").onclick=function(){ stepOctave(1); };
-  document.getElementById("syncBtn").onclick=function(){ resync(); setStatus("synced","ok"); };
+  var syncBtn=document.getElementById("syncBtn"), syncLabel=document.getElementById("syncLabel");
+  syncBtn.onclick=function(){ if(syncBtn._busy) return; syncBtn._busy=true;
+    syncBtn.classList.add("syncing"); if(syncLabel) syncLabel.textContent="SYNCING"; resync();
+    setTimeout(function(){ syncBtn.classList.remove("syncing"); if(syncLabel) syncLabel.textContent="SYNCED"; syncBtn._busy=false;
+      setTimeout(function(){ if(syncLabel) syncLabel.textContent="SYNC"; },900); },750); };
 
-  setStatus("connecting…","");
+  document.addEventListener("pointerdown",function(e){
+    if(_menu && !_menu.contains(e.target) && !(e.target.closest&&e.target.closest(".chip"))) closeMenu(); });
+  // Page scroll is dismissed by the pointerdown-outside handler above (a touch
+  // page-scroll starts with a pointerdown outside the menu). We deliberately do
+  // NOT close on the scroll event: a capture-phase scroll listener also fires
+  // when scrolling INSIDE the menu's own option list (overflow-y:auto) and when
+  // a stray/momentum scroll lands right after reopening — both wrongly dismissed it.
+
+  /* ---- boot: render immediately (default model A), values + real model stream in ---- */
   remote.onParamChange(applyParamUpdate);
-  // Render the panel immediately from the embedded layout (default model A) so the
-  // UI never waits on a manager round-trip; values + actual model stream in after.
-  build();
-  seedValues();
-  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); setStatus("connected","ok"); });
+  applyModel(0);
+  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); });
 })();
 </script>
 </body>
