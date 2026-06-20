@@ -479,7 +479,11 @@ static const virus_param_t g_params[] = {
     {"filter2_env_polarity", "Flt2 Env Pol",     VIRUS_PAGE_B, 31, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_env_polarity)},
     {"filter2_cutoff_link",  "Flt2 Cut Link",    VIRUS_PAGE_B, 32, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
     {"filter_keytrack_base", "Flt KeyTrk Base",  VIRUS_PAGE_B, 33, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
-    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_BC,  OPTS(opts_osc_fm_mode)},
+    /* Osc FM Mode is available on ALL models (matches upstream + the reference Osirus
+     * plugin) — the Virus A's FM uses the internal modes (Pos-Tri/Tri/Wave/Noise). Do
+     * NOT gate to B/C: that would remove a working A control. (delay_reverb_mode above
+     * IS gated, but with hard evidence — byte 112 is constant on A; FM Mode has none.) */
+    {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_ALL, OPTS(opts_osc_fm_mode)},
     {"osc_init_phase",       "Osc Init Phase",   VIRUS_PAGE_B, 35, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"punch_intensity",      "Punch",            VIRUS_PAGE_B, 36, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"bender_range_up",      "Bend Up",          VIRUS_PAGE_B, 26, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
