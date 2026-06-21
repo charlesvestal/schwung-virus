@@ -10,6 +10,35 @@ Most recent first.
 
 ---
 
+## v4 remote UI + ROM auto-skin + robustness hardening — ✅ (2026-06-20)
+
+- `221016e` **feat(osirus): port v4 signal-flow remote UI** — replaces the absolute-position
+  arranger with a scrolling signal-flow editor (live filter Bode plot, drag-editable ADSR graphs,
+  mod-matrix routing list, per-ROM A/B/C skins). Self-contained single-file, no build step.
+- `0deb39f` **fix(osirus): expose rom_model to the remote UI** — the manager's getParam is cache-only;
+  the state seed now carries `rom_model` so the UI can A/B/C-auto-skin. One-line addition to `get_state`.
+- `3989694` **fix(osirus): DSP-clock % sticks + audit hardening** — get_param/get_state report
+  `dsp_clock_percent` (intent) not the lagging `dsp_clock_applied`; plus a 2-round static audit's HIGH+safe
+  batch: child-crash watchdog + auto-respawn (CR-1), octave-transpose held-note table (no stuck voices),
+  cross-process memory barriers (MIDI FIFO / audio ring / current_single — ARM weak ordering), robust panic
+  (CC64+CC120+CC123), get_state buffer guard, stale-single reset. All device-verified. Report: `docs/2026-06-20-osirus-static-audit.md`.
+- `274df23` **fix(osirus): un-gate osc_fm_mode** — REGRESSION fix: a bulk model-filter pass had gated FM
+  Mode to B/C with no justification, removing a working Virus-A control. Reverted to `MODEL_ALL` (matches
+  upstream + the reference Osirus plugin).
+- **Upstream-regression sweep (fan-out, diff vs `upstream/main` == fork point).** Param set 185↔185 (none
+  removed/added); only 2 model-flag changes total (osc_fm_mode above + delay_reverb_mode, evidence-justified).
+  Two further regressions found in modified behavioral paths and **closed**:
+  - **R1 — empty `get_state` dropped pre-first-preset param edits** (side-effect of the #14 empty-bail).
+    Fixed: a `params_user_dirty` flag lets pre-preset edits serialize (referentially, like upstream) while
+    still protecting a good self-contained slot during the boot/restart window.
+  - **R2 — Virus-A sub-100 `dsp_clock` snapped to 100 on restore** (#15 floor). NOT a regression — A
+    genuinely needs 100% (sub-100 starves it); the floor is correct. Made the live setter floor A at 100 too
+    (consistency) so a sub-100 A value can't be set then lost.
+  **Net after these: the fork→upstream diff is regression-free.** The audit hardening fixes several *latent
+  upstream* bugs (crash silence, transpose stuck-notes, IPC races) — portable improvements, not regressions.
+
+---
+
 ## Self-contained module presets + preset-load latch fix — ✅ (v0.6.0)
 
 - `405aebd` **feat(osirus): self-contained presets + fix silent preset-load latch**

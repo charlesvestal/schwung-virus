@@ -857,6 +857,13 @@ struct virus_instance_t {
      * detect a frozen heartbeat during underrun and kick a respawn. */
     int wd_alive_last;   /* last-seen child_alive while underrunning */
     int wd_stall;        /* consecutive underrunning renders with frozen heartbeat */
+
+    /* R1: set when the user edits a param (knob/CC) and cleared on a real preset/bank
+     * load, restore, or child restart. get_state's empty-bail (which protects a good
+     * self-contained slot during the no-valid-single window) fires only when NO user edit
+     * is pending — so edits made before the first preset load still serialize (referential,
+     * matching upstream) instead of being silently dropped. */
+    int params_user_dirty;
 };
 
 /* =====================================================================
@@ -1806,6 +1813,7 @@ static void kill_child_and_reset(virus_instance_t *inst) {
      * new rom_index and clobber a good slot file (not caught by the empty-state guard).
      * pending_state replay re-establishes valid=1 with the new child's single. */
     shm->current_single_valid = 0;
+    inst->params_user_dirty = 0;   /* R1: restart window is protected by the empty bail again */
 }
 
 static void* boot_thread_func(void *arg) {
@@ -1985,10 +1993,12 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
     if (status == 0xB0 && len >= 3) {
         inst->shm->cc_values[msg[1] & 0x7F] = msg[2] & 0x7F;
         inst->shm->cc_seen[msg[1] & 0x7F] = 1;
+        if (msg[1] != 0 && msg[1] != 32) inst->params_user_dirty = 1;  /* R1: param-CC edit (not bank select) */
     }
 
     if (status == 0xC0 && len >= 2) {
         clear_param_overrides(inst->shm);
+        inst->params_user_dirty = 0;   /* R1: a preset load supersedes pre-load edits */
     } else if (status == 0xB0 && len >= 3 && (msg[1] == 0 || msg[1] == 32)) {
         clear_param_overrides(inst->shm);
     }
@@ -2087,6 +2097,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     virus_shm_t *shm = inst->shm;
 
     if (strcmp(key, "state") == 0) {
+        inst->params_user_dirty = 0;   /* R1: a restore supersedes any pre-restore edits */
         if (!shm->loading_complete || !shm->child_ready) {
             if (inst->pending_state) free(inst->pending_state);
             inst->pending_state = strdup(val);
@@ -2230,6 +2241,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             }
             inst->force_next_preset = 0;
             clear_param_overrides(shm);
+            inst->params_user_dirty = 0;   /* R1: this load supersedes pre-load edits */
             shm->current_preset = idx;
             shm->preset_req_gen++;
             __sync_synchronize();
@@ -2250,6 +2262,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             }
             inst->force_next_bank = 0;
             clear_param_overrides(shm);
+            inst->params_user_dirty = 0;   /* R1: this load supersedes pre-load edits */
             shm->current_bank = idx;
             shm->current_preset = 0;
             if (idx < g_rom_bank_count)
@@ -2299,6 +2312,12 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     if (strcmp(key, "dsp_clock") == 0) {
         int v = atoi(val);
         if (v < 10) v = 10; if (v > 100) v = 100;
+        /* Virus A must run at 100% — a sub-100 clock starves A's emulated DSP (underruns),
+         * so pin A here too, mirroring the restore floor in apply_restored_dsp_clock. This
+         * keeps the live setter and restore consistent: you can't set a sub-100 A clock that
+         * would then be silently reset on the next save/restore. (B/C accept their full range
+         * live; restore re-floors them.) */
+        if ((shm->rom_model_name[0] == 'A' || shm->rom_model_name[0] == 'a') && v < 100) v = 100;
         shm->dsp_clock_percent = v;
         return;
     }
@@ -2327,6 +2346,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             if (ival < g_params[i].min_val) ival = g_params[i].min_val;
             if (ival > g_params[i].max_val) ival = g_params[i].max_val;
             send_param_midi(shm, &g_params[i], ival);
+            inst->params_user_dirty = 1;   /* R1: a real user edit is now worth serializing */
             return;
         }
     }
@@ -2746,8 +2766,12 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
          * read (bailIfEmpty in shadow_ui.js buildSlotPatchJson), so a transient no-single
          * window can't clobber a faithful self-contained save with a single-less one.
          * current_single_valid is set only by a real preset load (Program Change) or a
-         * self-contained restore inject, never by the passive boot-default. */
-        if (!shm->current_single_valid) {
+         * self-contained restore inject, never by the passive boot-default.
+         * R1: but DON'T bail if the user has edited a param in this no-single window —
+         * those edits must serialize (referentially, like upstream) instead of being
+         * silently dropped. params_user_dirty is set on a param edit and cleared on a
+         * real load/restore/restart, so a good slot is still protected when no edit is pending. */
+        if (!shm->current_single_valid && !inst->params_user_dirty) {
             if (buf_len > 0) buf[0] = '\0';
             return 0;
         }
