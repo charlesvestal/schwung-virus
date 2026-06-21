@@ -33,7 +33,7 @@ The loader accepts any `.mid` or `.bin` file in the `roms/` directory. It auto-d
 
 Virus B/C ROMs are not supported on Move. The Virus B/C DSP models require more processing power than the Move's Cortex-A72 can provide in real time.
 
-The Schwung version of this emulator does not support additional presets - enjoy the ROM's built-in banks!
+User presets are supported: a patch saves and recalls as self-contained state, so the host's **User Presets** (including live preview) work with Osirus — in addition to the ROM's built-in banks.
 
 ## Architecture
 
@@ -62,6 +62,18 @@ On-device controls:
 - **Shift + Left/Right**: previous/next bank
 - Scrolling past the first/last preset automatically wraps to the previous/next bank
 
+## Remote UI
+
+A browser-based editor is served by the host for full patch editing (open it from the slot's custom-UI button). It lays the Virus parameters out by signal flow, auto-skins itself to the detected ROM model, and renders live instrument graphics:
+
+![Osirus remote UI](docs/images/osirus-remote-ui.png)
+
+- Scrollable sections — Oscillators → Filters → Envelopes → LFOs → Mod Matrix → Effects → Arp·Voice
+- A live filter-response (Bode) plot and drag-editable ADSR envelope graphs
+- A readable mod matrix (Source → Destination → Amount) with draggable bipolar amount bars
+- Ring knobs (vertical drag / wheel / double-click to reset), select chips, and hardware-style toggles
+- Model-aware: it shows only the parameters the loaded ROM model actually has, and re-skins per model (A / B / C)
+
 ## Building
 
 Requires Docker for cross-compilation:
@@ -87,3 +99,22 @@ This module is part of Move Everything and was developed with AI assistance, inc
 
 All architecture, implementation, and release decisions are reviewed by human maintainers.  
 AI-assisted content may still contain errors, so please validate functionality, security, and license compatibility before production use.
+
+## Changelog
+
+**Remote UI**
+- New signal-flow remote editor (replaces the old panel): scrollable sections, a live filter-response plot, drag-editable ADSR envelopes, and a readable Source → Destination → Amount mod matrix.
+- Auto-skins to the detected ROM model (A red/amber, B indigo, C charcoal) and shows only the parameters that model has.
+
+**Synth / engine**
+- Automatic ROM-model (A/B/C) detection, driving the remote-UI skin and parameter gating.
+- User presets — self-contained patch save/restore that works with the host's User Presets and live preview; patches recall faithfully across set reloads.
+- 4-point cubic output resampler for cleaner audio than the previous linear resampler.
+- DSP-clock control to trade emulation headroom for CPU on heavier ROMs.
+
+**Robustness & fixes**
+- The DSP child process is monitored: if it crashes mid-session the module auto-recovers (respawns) instead of going permanently silent.
+- No more stuck notes when changing octave transpose while keys are held.
+- Stronger panic — All Notes Off also releases the sustain pedal and forces All Sound Off.
+- Cross-process audio/MIDI memory-ordering fences (ARM) to prevent rare glitches and torn state.
+- DSP-clock % now persists correctly; Virus-A FX parameter gating corrected; assorted state-restore fixes.
