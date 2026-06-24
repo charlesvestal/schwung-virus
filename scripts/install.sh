@@ -18,6 +18,7 @@ echo "=== Installing Osirus Module ==="
 echo "Copying module to Move..."
 ssh ableton@move.local "mkdir -p /data/UserData/schwung/modules/sound_generators/osirus/roms"
 scp -r dist/osirus/module.json dist/osirus/ui.js dist/osirus/dsp.so \
+    dist/osirus/web_ui.html dist/osirus/help.json \
     ableton@move.local:/data/UserData/schwung/modules/sound_generators/osirus/
 
 # Set permissions
