@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Osirus Editor</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  :root{
+    --bg:#16110f; --surf:#7a201a; --surf2:#9a2a22; --line:rgba(0,0,0,.32);
+    --ink:#fdf3ef; --mut:#eab9b0; --acc:#f5a623; --acc2:#ff7044; --led:#ffc01f; --track:rgba(255,255,255,.13);
+    --val:#f6e2db; --skirt:rgba(255,235,225,.40); --ptr:#ffffff; --cap1:#57392e; --cap2:#0b0503; --gloss:rgba(255,238,214,.24);
+    --chrome:#1a1411; --chromeink:#fbeee8; --chromemut:#b29a91;
+    --cheek1:#7c2018; --cheek2:#3d0f0a; --lcdbg:linear-gradient(180deg,#9ece4d,#80b438); --lcdink:#16280b; --lcdframe:#37460e;
+    --wellbd:#000; --wellring:0 0 0 1px rgba(0,0,0,0);
+  }
+  html{background:var(--bg)}
+  body{font-family:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;
+    -webkit-user-select:none;user-select:none;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 92%,#fff 2%),var(--bg) 40%),var(--bg)}
+  body::before,body::after{content:"";position:fixed;top:0;bottom:0;width:13px;z-index:70;pointer-events:none}
+  body::before{left:0;background:linear-gradient(90deg,var(--cheek2),var(--cheek1) 45%,var(--cheek2))}
+  body::after{right:0;background:linear-gradient(270deg,var(--cheek2),var(--cheek1) 45%,var(--cheek2))}
+  .mono{font-variant-numeric:tabular-nums;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+
+  /* top bar */
+  .top{position:sticky;top:0;z-index:60;background:var(--chrome);border-bottom:1px solid rgba(0,0,0,.18);backdrop-filter:blur(9px)}
+  .topin{max-width:980px;margin:0 auto;display:flex;align-items:center;gap:16px;height:54px;padding:0 26px}
+  .brand{display:flex;align-items:baseline;gap:7px;flex:none}
+  .brand b{font-size:15px;font-weight:800;letter-spacing:4px;color:var(--chromeink)}
+  .brand b i{font-style:normal;color:var(--acc)}
+  .brand .mn{font-size:8px;font-weight:700;letter-spacing:1.6px;color:var(--chromemut);text-transform:uppercase;white-space:nowrap}
+  .seg{display:flex;gap:2px;background:var(--surf);border:1px solid rgba(0,0,0,.28);border-radius:9px;padding:3px;flex:none}
+  .seg button{appearance:none;border:0;background:transparent;color:var(--mut);font-family:inherit;font-weight:700;font-size:11.5px;
+    letter-spacing:1px;padding:5px 12px;border-radius:6px;cursor:pointer}
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{color:#fff;background:var(--acc);box-shadow:0 1px 8px color-mix(in srgb,var(--acc) 40%,transparent)}
+  .pr{flex:1;min-width:0;display:flex;align-items:center;gap:11px;padding:0 4px}
+  .pr .dot{width:7px;height:7px;border-radius:50%;background:var(--led);box-shadow:0 0 9px var(--led);flex:none}
+  .lcd{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:32px;padding:0 12px;border-radius:6px;
+    background:var(--lcdbg);border:1px solid var(--lcdframe);box-shadow:inset 0 1px 5px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12);
+    font-family:ui-monospace,Menlo,monospace}
+  .lcd .pn{flex:1;min-width:0;font-size:12.5px;font-weight:700;color:var(--lcdink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.3px}
+  .lcd .pm{font-size:10px;color:var(--lcdink);opacity:.82;white-space:nowrap;letter-spacing:.5px}
+  .pr .hb{appearance:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--mut);width:23px;height:23px;border-radius:6px;cursor:pointer;font-size:12px;line-height:1;flex:none}
+  .pr .hb:hover{color:var(--ink)}
+  .oct{display:flex;align-items:center;gap:6px;flex:none}
+  .oct .l{font-size:9px;letter-spacing:1.4px;color:var(--chromemut);text-transform:uppercase}
+  .oct .hb{appearance:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--mut);width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1}
+  .oct .hb:hover{color:var(--ink)}
+  .oct .ov{font-size:12px;min-width:16px;text-align:center;color:var(--chromeink)}
+  .sync{display:flex;align-items:center;gap:7px;flex:none;border:1px solid rgba(0,0,0,.28);background:var(--surf);color:var(--ink);
+    border-radius:7px;padding:7px 13px;cursor:pointer;font-family:inherit;font-weight:700;font-size:10px;letter-spacing:1.3px;text-transform:uppercase}
+  .sync .d{width:6px;height:6px;border-radius:50%;background:var(--led);box-shadow:0 0 7px var(--led);flex:none}
+  .sync:hover{border-color:var(--acc);color:#fff}
+  .sync:active{transform:translateY(1px)}
+  .sync.syncing{border-color:var(--acc);color:#fff}
+  .sync.syncing .d{animation:syncblink .25s steps(2,end) infinite}
+  @keyframes syncblink{0%{opacity:1}100%{opacity:.2}}
+
+  /* horizontal section nav */
+  .tabs{position:sticky;top:54px;z-index:40;background:var(--chrome);border-bottom:1px solid rgba(0,0,0,.18);backdrop-filter:blur(9px)}
+  .tabsin{max-width:980px;margin:0 auto;display:flex;flex-wrap:wrap;gap:3px;padding:6px 26px}
+  .tabs a{display:flex;align-items:center;gap:7px;padding:5px 11px;color:var(--chromemut);text-decoration:none;cursor:pointer;
+    font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;border-radius:7px;border:1px solid transparent}
+  .tabs a .d{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.4;flex:none}
+  .tabs a:hover{color:var(--chromeink)}
+  .tabs a.on{color:var(--chromeink);background:color-mix(in srgb,var(--acc) 16%,transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+  .tabs a.on .d{background:var(--led);opacity:1;box-shadow:0 0 7px var(--led)}
+
+  .content{max-width:980px;margin:0 auto;padding:14px 26px 90px}
+
+  /* section panel */
+  .sec{position:relative;width:max-content;max-width:100%;background:linear-gradient(180deg,var(--surf2),var(--surf));border:1px solid var(--line);
+    border-radius:9px;padding:12px 15px 5px;margin:0 0 11px;box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0,0,0,.32)}
+  .scr{position:absolute;width:6px;height:6px;border-radius:50%;z-index:2;
+    background:radial-gradient(circle at 35% 30%,#cccfd3,#6c6f74 68%,#0c0d0e);box-shadow:inset 0 0 0 .5px rgba(0,0,0,.5),0 1px 1px rgba(0,0,0,.4)}
+  .scr.tl{top:7px;left:7px}.scr.tr{top:7px;right:7px}.scr.bl{bottom:7px;left:7px}.scr.br{bottom:7px;right:7px}
+  .shd{display:flex;align-items:center;gap:9px;margin:0 2px 12px}
+  .shd .led{width:6px;height:6px;border-radius:50%;background:var(--led);box-shadow:0 0 7px var(--led);flex:none}
+  .shd .no{font-size:9px;font-weight:700;letter-spacing:1.4px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .shd h2{margin:0;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink);text-shadow:0 1px 1px rgba(0,0,0,.45)}
+  .shd .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+  .grp{margin:0 0 2px}
+  .gcap{font-size:8px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);margin:0 0 9px;display:flex;align-items:center;gap:7px}
+  .gcap::before{content:"";width:3px;height:3px;border-radius:50%;background:var(--led);box-shadow:0 0 4px var(--led);opacity:.8;flex:none}
+  .gcap::after{content:"";flex:1;height:1px;background:var(--line)}
+  .ctls{display:flex;flex-wrap:wrap;gap:14px 12px;align-items:flex-start;margin:0 0 12px}
+  .grprow{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+  .grprow .grp{flex:none}
+  .lfobox{width:max-content;max-width:100%;border:1px solid var(--line);border-left:3px solid var(--led);border-radius:7px;
+    padding:11px 14px 4px;margin:0 0 11px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.07))}
+  .lfobox .grp:first-child{margin-bottom:7px}
+
+  /* physical knob */
+  .k{display:flex;flex-direction:column;align-items:center;gap:4px;width:56px;flex:none}
+  .k .lab{font-size:8.2px;font-weight:600;letter-spacing:.2px;text-transform:uppercase;color:var(--ink);opacity:.9;text-align:center;
+    line-height:1.08;height:16px;max-width:66px;display:flex;align-items:flex-end;justify-content:center;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+  .k.dim{opacity:.32}
+  .ring{width:48px;height:48px}
+  .ring svg{width:48px;height:48px;display:block}
+  .ktick{stroke:var(--skirt);stroke-width:.9;stroke-linecap:round;fill:none}
+  .rt{fill:none;stroke:var(--track);stroke-width:2.4;stroke-linecap:round}
+  .rf{fill:none;stroke:var(--acc);stroke-width:2.4;stroke-linecap:round;filter:drop-shadow(0 0 2px color-mix(in srgb,var(--acc) 55%,transparent))}
+  .rk{stroke:var(--ptr);stroke-width:2;stroke-linecap:round}
+  .rv{font-size:8.8px;font-weight:600;color:var(--val);font-variant-numeric:tabular-nums}
+
+  /* LED readout select */
+  .k.sel{width:auto}
+  .k.sel .lab{max-width:150px}
+  .chip{height:26px;width:104px;display:flex;align-items:center;gap:6px;padding:0 8px;border-radius:6px;border:1px solid var(--wellbd);
+    background:linear-gradient(180deg,#0c0e0d,#070908);box-shadow:inset 0 1px 3px rgba(0,0,0,.6),var(--wellring)}
+  .chip.wide{width:150px}
+  .chip .led{width:4px;height:4px;border-radius:50%;background:var(--led);box-shadow:0 0 5px var(--led);flex:none}
+  .chip .cv{flex:1;min-width:0;font-size:10px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.2px}
+  .chip .ca{width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-top:4px solid var(--mut);flex:none}
+  .chip{cursor:pointer}
+  .chip:hover{border-color:var(--acc)}
+  .ring{cursor:ns-resize;touch-action:none}
+  .selmenu{position:fixed;z-index:200;background:linear-gradient(180deg,var(--surf2),var(--surf));border:1px solid var(--acc);
+    border-radius:8px;padding:4px;box-shadow:0 8px 26px rgba(0,0,0,.6);max-height:300px;overflow-y:auto;min-width:120px}
+  .selopt{padding:5px 11px;font-size:11px;font-weight:600;color:var(--ink);border-radius:5px;cursor:pointer;white-space:nowrap;letter-spacing:.2px}
+  .selopt:hover{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+  .selopt.on{background:var(--acc);color:#fff}
+
+  /* hardware button toggle */
+  .k.tg{width:auto;align-items:center}
+  .tgl{width:30px;height:22px;border-radius:5px;border:1px solid #000;position:relative;
+    background:linear-gradient(180deg,#3b3f45 0%,#26292e 45%,#15171a 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),inset 0 -2px 3px rgba(0,0,0,.5)}
+  .tgl .l{position:absolute;top:3px;left:50%;margin-left:-2.5px;width:5px;height:5px;border-radius:50%;background:#1c1d20;box-shadow:inset 0 0 1px rgba(0,0,0,.8)}
+  .tgl.on .l{background:var(--led);box-shadow:0 0 6px 1px var(--led),inset 0 0 1px rgba(255,250,225,.9)}
+  .k.tg .st{font-size:7.8px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:var(--val);opacity:.8}
+  .k.tg.on .st{color:var(--ink);opacity:1}
+
+  /* scope */
+  .scope{display:inline-flex;gap:15px;align-items:stretch;border:1px solid var(--wellbd);border-radius:8px;padding:9px 12px;margin:2px 0 12px;max-width:100%;flex-wrap:wrap;
+    background:linear-gradient(180deg,#0c0e0d,#070908);box-shadow:inset 0 1px 4px rgba(0,0,0,.55),var(--wellring)}
+  .gcell{display:flex;flex-direction:column;gap:5px;flex:none}
+  .gcell .gl{font-size:8px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--val);opacity:.72;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .gcell .gl i{width:11px;height:2.5px;border-radius:2px;display:inline-block;flex:none}
+  .disp{flex:none;border-radius:5px;background:#070809;position:relative;overflow:hidden;border:1px solid var(--wellbd);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03),var(--wellring)}
+  .scoperow{display:flex;width:100%;align-items:flex-start;margin:2px 0 12px;gap:16px}
+  .scoperow.between{justify-content:space-between}
+  .scoperow.around{justify-content:space-around}
+  .scoperow .scope{margin:0}
+  .disp svg{width:100%;height:100%;display:block}
+  .gline{stroke:rgba(255,255,255,.06);stroke-width:1}
+  .curve{fill:none;stroke-width:1.8;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .curve.a{stroke:var(--acc)} .curve.b{stroke:var(--acc2)}
+  .carea{opacity:.16}
+  .leg{display:flex;flex-direction:column;justify-content:center;gap:6px;flex:none;min-width:96px}
+  .leg .lr{display:flex;align-items:center;gap:7px;font-size:9.5px;font-weight:600;color:var(--mut);letter-spacing:.4px}
+  .leg .lr b{color:var(--ink);font-weight:600}
+  .leg .sw7{width:14px;height:3px;border-radius:2px;flex:none}
+  .leg .vbig{font-size:18px;font-weight:300;color:var(--ink);letter-spacing:.5px}
+  .leg .vbig span{font-size:10px;color:var(--mut);font-weight:600;margin-left:3px}
+
+  /* mod matrix */
+  .mx{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:0 0 8px}
+  .mr{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surf)}
+  .mr .n{width:21px;height:21px;border-radius:6px;background:color-mix(in srgb,var(--acc) 15%,transparent);color:var(--acc);
+    font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+  .mr .src{flex:none}
+  .mr .src .chip{width:124px}
+  .mr .flow{display:flex;flex-direction:column;gap:7px}
+  .dp{display:flex;align-items:center;gap:8px}
+  .dp .ar{color:var(--mut);font-size:12px}
+  .dp .chip{width:118px;height:27px}
+  .amt{display:flex;align-items:center;gap:6px}
+  .amt .bar{width:232px;height:5px;border-radius:3px;background:#0c0d10;position:relative;overflow:hidden;border:1px solid var(--wellbd)}
+  .amt .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.18)}
+  .amt .fil{position:absolute;top:0;bottom:0;background:var(--acc)}
+  .amt .v{font-size:9.5px;font-weight:600;color:var(--ink);min-width:24px;text-align:right;font-variant-numeric:tabular-nums}
+
+  footer{max-width:980px;margin:0 auto;padding:10px 26px 50px;color:var(--chromemut);opacity:.7;font-size:9.5px;letter-spacing:.4px;text-align:center}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="kcap" cx="38%" cy="30%" r="72%">
+    <stop offset="0%" stop-color="var(--cap1)"/><stop offset="100%" stop-color="var(--cap2)"/>
+  </radialGradient>
+</defs></svg>
+<div class="top"><div class="topin">
+  <div class="brand"><b>OSIRUS<i>.</i></b><span class="mn" id="mName">VIRUS A</span></div>
+  <div class="seg">
+    <button id="segA">A</button><button id="segB">B</button><button id="segC">C</button>
+  </div>
+  <div class="pr"><span class="dot"></span>
+    <button class="hb" id="pPrev" title="Prev patch">&lsaquo;</button>
+    <div class="lcd"><span class="pn" id="pName">&mdash;</span><span class="pm" id="pMeta">&mdash;</span></div>
+    <button class="hb" id="pNext" title="Next patch">&rsaquo;</button></div>
+  <div class="oct"><span class="l">Oct</span><button class="hb" id="oDown">&minus;</button><span class="ov" id="oVal">0</span><button class="hb" id="oUp">+</button></div>
+  <button class="sync" id="syncBtn" title="Re-sync patch from device"><span class="d"></span><span id="syncLabel">SYNC</span></button>
+</div></div>
+<nav class="tabs"><div class="tabsin" id="rail"></div></nav>
+<main class="content" id="main"></main>
+<footer>OSIRUS &middot; Access Virus emulator (Gearmulator) &middot; single-patch editor</footer>
+
+<script src="/static/schwung-remote-api.js"></script>
+<script>
+/* AUTO-GENERATED by scripts/gen_web_ui_params.py from virus_plugin.cpp. */
+/* Do not edit by hand — re-run the generator if g_params changes.       */
+var OPTS = {"opts_filter1_mode": ["LowPass", "HighPass", "BandPass", "BandStop", "Analog 1P", "Analog 2P", "Analog 3P", "Analog 4P"], "opts_filter2_mode": ["LowPass", "HighPass", "BandPass", "BandStop"], "opts_filter_routing": ["Serial 4", "Serial 6", "Parallel 4", "Split"], "opts_filter_select": ["Filter 1", "Filter 2", "Filter 1+2"], "opts_sat_curve": ["Off", "Light", "Soft", "Middle", "Hard", "Digital", "Shaper", "Rectifier", "BitReducer", "RateReducer", "Rate+Flw", "LowPass", "Low+Flw", "HighPass", "High+Flw"], "opts_dist_curve": ["Off", "Light", "Soft", "Middle", "Hard", "Digital", "Shaper", "Rectifier", "BitReducer", "RateReducer", "LowPass", "HighPass"], "opts_key_mode": ["Poly", "Mono 1", "Mono 2", "Mono 3", "Mono 4", "Hold"], "opts_unison_mode": ["Off", "Twin", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"], "opts_input_mode": ["Off", "Dynamic", "Static", "To Effects"], "opts_delay_reverb_mode": ["Off", "Delay", "Reverb", "Rev+Fb1", "Rev+Fb2", "Dly 2:1", "Dly 4:3", "Dly 4:1", "Dly 8:7", "Pat 1+1", "Pat 2+1", "Pat 3+1", "Pat 4+1", "Pat 5+1", "Pat 2+3", "Pat 2+5", "Pat 3+2", "Pat 3+3", "Pat 3+4", "Pat 3+5", "Pat 4+3", "Pat 4+5", "Pat 5+2", "Pat 5+3", "Pat 5+4", "Pat 5+5", "Pat X+Y"], "opts_delay_lfo_shape": ["Sine", "Triangle", "Saw", "Square", "S&H", "S&G"], "opts_arp_mode": ["Off", "Up", "Down", "Up&Down", "As Played", "Random", "Chord"], "opts_arp_octaves": ["1", "2", "3", "4"], "opts_off_on": ["Off", "On"], "opts_lfo_mode": ["Poly", "Mono"], "opts_lfo3_dest": ["Osc1", "Osc1+2", "Osc2", "PW1", "PW1+2", "PW2"], "opts_sub_osc_shape": ["Square", "Triangle"], "opts_osc_fm_mode": ["Pos-Tri", "Tri", "Wave", "Noise", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_env_polarity": ["Negative", "Positive"], "opts_mod_source": ["Off", "PitchBnd", "ChanPres", "ModWheel", "Breath", "Contr 3", "Foot", "Data", "Balance", "Contr 9", "Express", "Contr 12", "Contr 13", "Contr 14", "Contr 15", "Contr 16", "HoldPed", "PortaSw", "SostPed", "AmpEnv", "FiltEnv", "Lfo 1", "Lfo 2", "Lfo 3", "VeloOn", "VeloOff", "KeyFlw", "Random"], "opts_phaser_mode": ["Off", "1 Stage", "2 Stages", "3 Stages", "4 Stages", "5 Stages", "6 Stages"], "opts_input_follower": ["Off", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_vocoder_mode": ["Off", "Oscillator", "Osc Hold", "Noise", "In L", "In L+R", "In R", "Aux1 L", "Aux1 L+R", "Aux1 R", "Aux2 L", "Aux2 L+R", "Aux2 R"], "opts_music_div": ["Off", "1/64", "1/32", "1/16", "1/8", "1/4", "1/2", "3/64", "3/32", "3/16", "3/8", "1/24", "1/12", "1/6", "1/3", "2/3", "3/4", "1/1", "2/1", "4/1", "8/1", "16/1"], "opts_osc_wave": ["Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_lfo_shape": ["Sine", "Triangle", "Saw", "Square", "S&H", "S&G", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_osc3_mode": ["Off", "Slave", "Saw", "Pulse", "Sine", "Triangle", "Wave 3", "Wave 4", "Wave 5", "Wave 6", "Wave 7", "Wave 8", "Wave 9", "Wave 10", "Wave 11", "Wave 12", "Wave 13", "Wave 14", "Wave 15", "Wave 16", "Wave 17", "Wave 18", "Wave 19", "Wave 20", "Wave 21", "Wave 22", "Wave 23", "Wave 24", "Wave 25", "Wave 26", "Wave 27", "Wave 28", "Wave 29", "Wave 30", "Wave 31", "Wave 32", "Wave 33", "Wave 34", "Wave 35", "Wave 36", "Wave 37", "Wave 38", "Wave 39", "Wave 40", "Wave 41", "Wave 42", "Wave 43", "Wave 44", "Wave 45", "Wave 46", "Wave 47", "Wave 48", "Wave 49", "Wave 50", "Wave 51", "Wave 52", "Wave 53", "Wave 54", "Wave 55", "Wave 56", "Wave 57", "Wave 58", "Wave 59", "Wave 60", "Wave 61", "Wave 62", "Wave 63", "Wave 64"], "opts_mod_dest": ["Off", "PatchVol", "ChannelVol", "Panorama", "Transpose", "Portamento", "Osc1Shape", "Osc1PlsWdh", "Osc1WavSel", "Osc1Pitch", "Osc1Keyflw", "Osc2Shape", "Osc2PlsWdh", "Osc2WavSel", "Osc2Pitch", "Osc2Detune", "Osc2FmAmt", "Osc2EnvAmt", "FmEnvAmt", "Osc2Keyflw", "OscBalance", "SubOscVol", "OscMainVol", "NoiseVol", "Cutoff", "Cutoff2", "Filt1Reso", "Filt2Reso", "Flt1EnvAmt", "Flt2EnvAmt", "Flt1Keyflw", "Flt2Keyflw", "FltBalance", "FltAttack", "FltDecay", "FltSustain", "FltSusTime", "FltRelease", "AmpAttack", "AmpDecay", "AmpSustain", "AmpSusTime", "AmpRelease", "Lfo1Rate", "Lfo1Cont", "Lfo1>Osc1", "Lfo1>Osc2", "Lfo1>PlsWd", "Lfo1>Reso", "Lfo1>FltGn", "Lfo2Rate", "Lfo2Cont", "Lfo2>Shape", "Lfo2>Fm", "Lfo2>Cut1", "Lfo2>Cut2", "Lfo2>Pan", "Lfo3Rate", "Lfo3OscAmt", "UniDetune", "UniSpread", "UniLfoPhs", "ChorusMix", "ChorusRate", "ChorusDpth", "ChorusDly", "ChorusFeed", "EffectSend", "DelayTime", "DelayFeed", "DelayRate", "DelayDepth", "Osc1ShpVel", "Osc2ShpVel", "PlsWhdVel", "FmAmtVel", "Flt1EnvVel", "Flt2EnvVel", "Reso1Vel", "Reso2Vel", "AmpVel", "PanVel", "Ass1Amt1", "Ass2Amt1", "Ass2Amt2", "Ass3Amt1", "Ass3Amt2", "Ass3Amt3", "OscInitPhs", "PunchInt", "RingMod", "NoiseColor", "DelayColor", "ABoostInt", "ABoostTune", "DistInt", "RingmodMix", "Osc3Volume", "Osc3Semi", "Osc3Detune", "Lfo1AssAmt", "Lfo2AssAmt", "PhaserMix", "PhaserRate", "PhaserDept", "PhaserFreq", "PhaserFdbk", "PhaserSprd", "RevbDecay", "RevDamping", "RevbColor", "RevPredely", "RevFeedbck", "SecBalance", "ArpNoteLen", "ArpSwing", "ArpPattern", "EqMidGain", "EqMidFreq", "EqMidQFact", "Assign4Amt", "Assign5Amt", "Assign6Amt"]};
+var PARAMS = {"osc1_shape": {"name": "Osc1 Shape", "page": 0, "cc": 17, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_pulsewidth": {"name": "Osc1 PW", "page": 0, "cc": 18, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_wave_select": {"name": "Osc1 Wave", "page": 0, "cc": 19, "min": 0, "max": 63, "model": 0, "opts": "opts_osc_wave"}, "osc1_semitone": {"name": "Osc1 Semi", "page": 0, "cc": 20, "min": 16, "max": 112, "model": 0, "opts": null}, "osc1_keyfollow": {"name": "Osc1 KeyFlw", "page": 0, "cc": 21, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_shape": {"name": "Osc2 Shape", "page": 0, "cc": 22, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_pulsewidth": {"name": "Osc2 PW", "page": 0, "cc": 23, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_wave_select": {"name": "Osc2 Wave", "page": 0, "cc": 24, "min": 0, "max": 63, "model": 0, "opts": "opts_osc_wave"}, "osc2_semitone": {"name": "Osc2 Semi", "page": 0, "cc": 25, "min": 16, "max": 112, "model": 0, "opts": null}, "osc2_detune": {"name": "Osc2 Detune", "page": 0, "cc": 26, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_fm_amount": {"name": "Osc2 FM Amt", "page": 0, "cc": 27, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_sync": {"name": "Osc2 Sync", "page": 0, "cc": 28, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "osc2_filt_env_amt": {"name": "Osc2 FiltEnv", "page": 0, "cc": 29, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_filt_env_amt": {"name": "FM FiltEnv", "page": 0, "cc": 30, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_keyfollow": {"name": "Osc2 KeyFlw", "page": 0, "cc": 31, "min": 0, "max": 127, "model": 0, "opts": null}, "osc_balance": {"name": "Osc Balance", "page": 0, "cc": 33, "min": 0, "max": 127, "model": 0, "opts": null}, "sub_osc_volume": {"name": "Sub Volume", "page": 0, "cc": 34, "min": 0, "max": 127, "model": 0, "opts": null}, "sub_osc_shape": {"name": "Sub Shape", "page": 0, "cc": 35, "min": 0, "max": 1, "model": 0, "opts": "opts_sub_osc_shape"}, "osc_mainvolume": {"name": "Osc Volume", "page": 0, "cc": 36, "min": 0, "max": 127, "model": 0, "opts": null}, "noise_volume": {"name": "Noise Vol", "page": 0, "cc": 37, "min": 0, "max": 127, "model": 0, "opts": null}, "ringmod_volume": {"name": "Ring Mod Vol", "page": 0, "cc": 38, "min": 0, "max": 127, "model": 0, "opts": null}, "noise_color": {"name": "Noise Color", "page": 0, "cc": 39, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff": {"name": "Cutoff", "page": 0, "cc": 40, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff2_offset": {"name": "Cutoff2 Ofs", "page": 0, "cc": 41, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_resonance": {"name": "Filt1 Reso", "page": 0, "cc": 42, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_resonance": {"name": "Filt2 Reso", "page": 0, "cc": 43, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_env_amt": {"name": "Filt1 EnvAmt", "page": 0, "cc": 44, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_env_amt": {"name": "Filt2 EnvAmt", "page": 0, "cc": 45, "min": 0, "max": 127, "model": 0, "opts": null}, "filter1_keyfollow": {"name": "Filt1 KeyFlw", "page": 0, "cc": 46, "min": 0, "max": 127, "model": 0, "opts": null}, "filter2_keyfollow": {"name": "Filt2 KeyFlw", "page": 0, "cc": 47, "min": 0, "max": 127, "model": 0, "opts": null}, "filter_balance": {"name": "Filt Balance", "page": 0, "cc": 48, "min": 0, "max": 127, "model": 0, "opts": null}, "saturation_curve": {"name": "Saturation", "page": 0, "cc": 49, "min": 0, "max": 14, "model": 0, "opts": "opts_sat_curve"}, "filter1_mode": {"name": "Filt1 Mode", "page": 0, "cc": 51, "min": 0, "max": 7, "model": 0, "opts": "opts_filter1_mode"}, "filter2_mode": {"name": "Filt2 Mode", "page": 0, "cc": 52, "min": 0, "max": 3, "model": 0, "opts": "opts_filter2_mode"}, "filter_routing": {"name": "Filt Routing", "page": 0, "cc": 53, "min": 0, "max": 3, "model": 0, "opts": "opts_filter_routing"}, "flt_attack": {"name": "Flt Attack", "page": 0, "cc": 54, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_decay": {"name": "Flt Decay", "page": 0, "cc": 55, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_sustain": {"name": "Flt Sustain", "page": 0, "cc": 56, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_sustain_time": {"name": "Flt Sus Time", "page": 0, "cc": 57, "min": 0, "max": 127, "model": 0, "opts": null}, "flt_release": {"name": "Flt Release", "page": 0, "cc": 58, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_attack": {"name": "Amp Attack", "page": 0, "cc": 59, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_decay": {"name": "Amp Decay", "page": 0, "cc": 60, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_sustain": {"name": "Amp Sustain", "page": 0, "cc": 61, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_sustain_time": {"name": "Amp Sus Time", "page": 0, "cc": 62, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_release": {"name": "Amp Release", "page": 0, "cc": 63, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_rate": {"name": "LFO1 Rate", "page": 0, "cc": 67, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_shape": {"name": "LFO1 Shape", "page": 0, "cc": 68, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo1_env_mode": {"name": "LFO1 Env Mode", "page": 0, "cc": 69, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "lfo1_mode": {"name": "LFO1 Mode", "page": 0, "cc": 70, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo1_symmetry": {"name": "LFO1 Symmetry", "page": 0, "cc": 71, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_keyfollow": {"name": "LFO1 KeyFlw", "page": 0, "cc": 72, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_keytrigger": {"name": "LFO1 KeyTrig", "page": 0, "cc": 73, "min": 0, "max": 127, "model": 0, "opts": null}, "osc1_lfo1_amount": {"name": "Osc1 LFO1", "page": 0, "cc": 74, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_lfo1_amount": {"name": "Osc2 LFO1", "page": 0, "cc": 75, "min": 0, "max": 127, "model": 0, "opts": null}, "pw_lfo1_amount": {"name": "PW LFO1", "page": 0, "cc": 76, "min": 0, "max": 127, "model": 0, "opts": null}, "reso_lfo1_amount": {"name": "Reso LFO1", "page": 0, "cc": 77, "min": 0, "max": 127, "model": 0, "opts": null}, "filtgain_lfo1_amount": {"name": "FiltGain LFO1", "page": 0, "cc": 78, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_rate": {"name": "LFO2 Rate", "page": 0, "cc": 79, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_shape": {"name": "LFO2 Shape", "page": 0, "cc": 80, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo2_env_mode": {"name": "LFO2 Env Mode", "page": 0, "cc": 81, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "lfo2_mode": {"name": "LFO2 Mode", "page": 0, "cc": 82, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo2_symmetry": {"name": "LFO2 Symmetry", "page": 0, "cc": 83, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_keyfollow": {"name": "LFO2 KeyFlw", "page": 0, "cc": 84, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_keytrigger": {"name": "LFO2 KeyTrig", "page": 0, "cc": 85, "min": 0, "max": 127, "model": 0, "opts": null}, "shape_lfo2_amount": {"name": "Shape LFO2", "page": 0, "cc": 86, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_lfo2_amount": {"name": "FM LFO2", "page": 0, "cc": 87, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff1_lfo2_amount": {"name": "Cut1 LFO2", "page": 0, "cc": 88, "min": 0, "max": 127, "model": 0, "opts": null}, "cutoff2_lfo2_amount": {"name": "Cut2 LFO2", "page": 0, "cc": 89, "min": 0, "max": 127, "model": 0, "opts": null}, "pan_lfo2_amount": {"name": "Pan LFO2", "page": 0, "cc": 90, "min": 0, "max": 127, "model": 0, "opts": null}, "patch_volume": {"name": "Volume", "page": 0, "cc": 91, "min": 0, "max": 127, "model": 0, "opts": null}, "panorama": {"name": "Panorama", "page": 0, "cc": 10, "min": 0, "max": 127, "model": 0, "opts": null}, "transpose": {"name": "Transpose", "page": 0, "cc": 93, "min": 0, "max": 127, "model": 0, "opts": null}, "key_mode": {"name": "Key Mode", "page": 0, "cc": 94, "min": 0, "max": 5, "model": 0, "opts": "opts_key_mode"}, "unison_mode": {"name": "Unison Mode", "page": 0, "cc": 97, "min": 0, "max": 15, "model": 0, "opts": "opts_unison_mode"}, "unison_detune": {"name": "Unison Detune", "page": 0, "cc": 98, "min": 0, "max": 127, "model": 0, "opts": null}, "unison_pan_spread": {"name": "Unison Pan", "page": 0, "cc": 99, "min": 0, "max": 127, "model": 0, "opts": null}, "unison_lfo_phase": {"name": "Unison LFO Ph", "page": 0, "cc": 100, "min": 0, "max": 127, "model": 0, "opts": null}, "input_mode": {"name": "Input Mode", "page": 0, "cc": 101, "min": 0, "max": 3, "model": 0, "opts": "opts_input_mode"}, "portamento_time": {"name": "Portamento", "page": 0, "cc": 5, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_mix": {"name": "Chorus Mix", "page": 0, "cc": 105, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_rate": {"name": "Chorus Rate", "page": 0, "cc": 106, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_depth": {"name": "Chorus Depth", "page": 0, "cc": 107, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_delay": {"name": "Chorus Delay", "page": 0, "cc": 108, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_feedback": {"name": "Chorus Fdbk", "page": 0, "cc": 109, "min": 0, "max": 127, "model": 0, "opts": null}, "chorus_lfo_shape": {"name": "Chorus LFO", "page": 0, "cc": 110, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "delay_reverb_mode": {"name": "Dly/Rev Mode", "page": 0, "cc": 112, "min": 0, "max": 26, "model": 1, "opts": "opts_delay_reverb_mode"}, "effect_send": {"name": "Effect Send", "page": 0, "cc": 113, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_time": {"name": "Delay Time", "page": 0, "cc": 114, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_feedback": {"name": "Delay Fdbk", "page": 0, "cc": 115, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_rate_rev_decay": {"name": "Dly Rate/Decay", "page": 0, "cc": 116, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_depth": {"name": "Delay Depth", "page": 0, "cc": 117, "min": 0, "max": 127, "model": 0, "opts": null}, "delay_lfo_shape": {"name": "Delay LFO", "page": 0, "cc": 118, "min": 0, "max": 5, "model": 0, "opts": "opts_delay_lfo_shape"}, "delay_color": {"name": "Delay Color", "page": 0, "cc": 119, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_mode": {"name": "Arp Mode", "page": 1, "cc": 1, "min": 0, "max": 6, "model": 0, "opts": "opts_arp_mode"}, "arp_pattern": {"name": "Arp Pattern", "page": 1, "cc": 2, "min": 0, "max": 63, "model": 0, "opts": null}, "arp_octave_range": {"name": "Arp Octaves", "page": 1, "cc": 3, "min": 0, "max": 3, "model": 0, "opts": "opts_arp_octaves"}, "arp_hold": {"name": "Arp Hold", "page": 1, "cc": 4, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "arp_note_length": {"name": "Arp Length", "page": 1, "cc": 5, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_swing": {"name": "Arp Swing", "page": 1, "cc": 6, "min": 0, "max": 127, "model": 0, "opts": null}, "arp_clock": {"name": "Arp Clock", "page": 1, "cc": 17, "min": 0, "max": 17, "model": 0, "opts": "opts_music_div"}, "lfo3_rate": {"name": "LFO3 Rate", "page": 1, "cc": 7, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_shape": {"name": "LFO3 Shape", "page": 1, "cc": 8, "min": 0, "max": 67, "model": 0, "opts": "opts_lfo_shape"}, "lfo3_mode": {"name": "LFO3 Mode", "page": 1, "cc": 9, "min": 0, "max": 1, "model": 0, "opts": "opts_lfo_mode"}, "lfo3_keyfollow": {"name": "LFO3 KeyFlw", "page": 1, "cc": 10, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_destination": {"name": "LFO3 Dest", "page": 1, "cc": 11, "min": 0, "max": 5, "model": 0, "opts": "opts_lfo3_dest"}, "osc_lfo3_amount": {"name": "Osc LFO3 Amt", "page": 1, "cc": 12, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_fadein_time": {"name": "LFO3 FadeIn", "page": 1, "cc": 13, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo3_clock": {"name": "LFO3 Clock", "page": 1, "cc": 21, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "clock_tempo": {"name": "Clock Tempo", "page": 1, "cc": 16, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_clock": {"name": "LFO1 Clock", "page": 1, "cc": 18, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "lfo2_clock": {"name": "LFO2 Clock", "page": 1, "cc": 19, "min": 0, "max": 21, "model": 0, "opts": "opts_music_div"}, "delay_clock": {"name": "Delay Clock", "page": 1, "cc": 20, "min": 0, "max": 16, "model": 0, "opts": "opts_music_div"}, "filter1_env_polarity": {"name": "Flt1 Env Pol", "page": 1, "cc": 30, "min": 0, "max": 1, "model": 0, "opts": "opts_env_polarity"}, "filter2_env_polarity": {"name": "Flt2 Env Pol", "page": 1, "cc": 31, "min": 0, "max": 1, "model": 0, "opts": "opts_env_polarity"}, "filter2_cutoff_link": {"name": "Flt2 Cut Link", "page": 1, "cc": 32, "min": 0, "max": 1, "model": 0, "opts": "opts_off_on"}, "filter_keytrack_base": {"name": "Flt KeyTrk Base", "page": 1, "cc": 33, "min": 0, "max": 127, "model": 0, "opts": null}, "osc_fm_mode": {"name": "Osc FM Mode", "page": 1, "cc": 34, "min": 0, "max": 12, "model": 0, "opts": "opts_osc_fm_mode"}, "osc_init_phase": {"name": "Osc Init Phase", "page": 1, "cc": 35, "min": 0, "max": 127, "model": 0, "opts": null}, "punch_intensity": {"name": "Punch", "page": 1, "cc": 36, "min": 0, "max": 127, "model": 0, "opts": null}, "bender_range_up": {"name": "Bend Up", "page": 1, "cc": 26, "min": 0, "max": 127, "model": 0, "opts": null}, "bender_range_down": {"name": "Bend Down", "page": 1, "cc": 27, "min": 0, "max": 127, "model": 0, "opts": null}, "filter_select": {"name": "Filter Select", "page": 1, "cc": 122, "min": 0, "max": 2, "model": 0, "opts": "opts_filter_select"}, "osc1_shape_velocity": {"name": "Osc1 Shp Vel", "page": 1, "cc": 47, "min": 0, "max": 127, "model": 0, "opts": null}, "osc2_shape_velocity": {"name": "Osc2 Shp Vel", "page": 1, "cc": 48, "min": 0, "max": 127, "model": 0, "opts": null}, "pulsewidth_velocity": {"name": "PW Velocity", "page": 1, "cc": 49, "min": 0, "max": 127, "model": 0, "opts": null}, "fm_amount_velocity": {"name": "FM Amt Vel", "page": 1, "cc": 50, "min": 0, "max": 127, "model": 0, "opts": null}, "flt1_envamt_velocity": {"name": "Flt1 Env Vel", "page": 1, "cc": 54, "min": 0, "max": 127, "model": 0, "opts": null}, "flt2_envamt_velocity": {"name": "Flt2 Env Vel", "page": 1, "cc": 55, "min": 0, "max": 127, "model": 0, "opts": null}, "resonance1_velocity": {"name": "Reso1 Vel", "page": 1, "cc": 56, "min": 0, "max": 127, "model": 0, "opts": null}, "resonance2_velocity": {"name": "Reso2 Vel", "page": 1, "cc": 57, "min": 0, "max": 127, "model": 0, "opts": null}, "amp_velocity": {"name": "Amp Velocity", "page": 1, "cc": 60, "min": 0, "max": 127, "model": 0, "opts": null}, "panorama_velocity": {"name": "Pan Velocity", "page": 1, "cc": 61, "min": 0, "max": 127, "model": 0, "opts": null}, "assign1_source": {"name": "Asgn1 Src", "page": 1, "cc": 64, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign1_destination": {"name": "Asgn1 Dst", "page": 1, "cc": 65, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign1_amount": {"name": "Asgn1 Amt", "page": 1, "cc": 66, "min": 0, "max": 127, "model": 0, "opts": null}, "assign2_source": {"name": "Asgn2 Src", "page": 1, "cc": 67, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign2_dest1": {"name": "Asgn2 Dst1", "page": 1, "cc": 68, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign2_amount1": {"name": "Asgn2 Amt1", "page": 1, "cc": 69, "min": 0, "max": 127, "model": 0, "opts": null}, "assign2_dest2": {"name": "Asgn2 Dst2", "page": 1, "cc": 70, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign2_amount2": {"name": "Asgn2 Amt2", "page": 1, "cc": 71, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_source": {"name": "Asgn3 Src", "page": 1, "cc": 72, "min": 0, "max": 27, "model": 0, "opts": "opts_mod_source"}, "assign3_dest1": {"name": "Asgn3 Dst1", "page": 1, "cc": 73, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount1": {"name": "Asgn3 Amt1", "page": 1, "cc": 74, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_dest2": {"name": "Asgn3 Dst2", "page": 1, "cc": 75, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount2": {"name": "Asgn3 Amt2", "page": 1, "cc": 76, "min": 0, "max": 127, "model": 0, "opts": null}, "assign3_dest3": {"name": "Asgn3 Dst3", "page": 1, "cc": 77, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "assign3_amount3": {"name": "Asgn3 Amt3", "page": 1, "cc": 78, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo1_assign_dest": {"name": "LFO1 Asgn Dst", "page": 1, "cc": 79, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "lfo1_assign_amount": {"name": "LFO1 Asgn Amt", "page": 1, "cc": 80, "min": 0, "max": 127, "model": 0, "opts": null}, "lfo2_assign_dest": {"name": "LFO2 Asgn Dst", "page": 1, "cc": 81, "min": 0, "max": 122, "model": 0, "opts": "opts_mod_dest"}, "lfo2_assign_amount": {"name": "LFO2 Asgn Amt", "page": 1, "cc": 82, "min": 0, "max": 127, "model": 0, "opts": null}, "osc3_mode": {"name": "Osc3 Mode", "page": 1, "cc": 41, "min": 0, "max": 67, "model": 1, "opts": "opts_osc3_mode"}, "osc3_volume": {"name": "Osc3 Volume", "page": 1, "cc": 42, "min": 0, "max": 127, "model": 1, "opts": null}, "osc3_semitone": {"name": "Osc3 Semi", "page": 1, "cc": 43, "min": 16, "max": 112, "model": 1, "opts": null}, "osc3_detune": {"name": "Osc3 Detune", "page": 1, "cc": 44, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_mode": {"name": "Phaser Mode", "page": 1, "cc": 84, "min": 0, "max": 6, "model": 1, "opts": "opts_phaser_mode"}, "phaser_mix": {"name": "Phaser Mix", "page": 1, "cc": 85, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_rate": {"name": "Phaser Rate", "page": 1, "cc": 86, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_depth": {"name": "Phaser Depth", "page": 1, "cc": 87, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_frequency": {"name": "Phaser Freq", "page": 1, "cc": 88, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_feedback": {"name": "Phaser Fdbk", "page": 1, "cc": 89, "min": 0, "max": 127, "model": 1, "opts": null}, "phaser_spread": {"name": "Phaser Spread", "page": 1, "cc": 90, "min": 0, "max": 127, "model": 1, "opts": null}, "low_eq_freq": {"name": "Lo EQ Freq", "page": 1, "cc": 45, "min": 0, "max": 127, "model": 1, "opts": null}, "high_eq_freq": {"name": "Hi EQ Freq", "page": 1, "cc": 46, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_gain": {"name": "Mid EQ Gain", "page": 1, "cc": 92, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_freq": {"name": "Mid EQ Freq", "page": 1, "cc": 93, "min": 0, "max": 127, "model": 1, "opts": null}, "mid_eq_q": {"name": "Mid EQ Q", "page": 1, "cc": 94, "min": 0, "max": 127, "model": 1, "opts": null}, "low_eq_gain": {"name": "Lo EQ Gain", "page": 1, "cc": 95, "min": 0, "max": 127, "model": 1, "opts": null}, "high_eq_gain": {"name": "Hi EQ Gain", "page": 1, "cc": 96, "min": 0, "max": 127, "model": 1, "opts": null}, "distortion_curve": {"name": "Dist Curve", "page": 1, "cc": 100, "min": 0, "max": 11, "model": 1, "opts": "opts_dist_curve"}, "distortion_intensity": {"name": "Dist Intensity", "page": 1, "cc": 101, "min": 0, "max": 127, "model": 1, "opts": null}, "bass_intensity": {"name": "Analog Boost", "page": 1, "cc": 97, "min": 0, "max": 127, "model": 1, "opts": null}, "bass_tune": {"name": "Boost Tune", "page": 1, "cc": 98, "min": 0, "max": 127, "model": 1, "opts": null}, "assign4_source": {"name": "Asgn4 Src", "page": 1, "cc": 103, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign4_destination": {"name": "Asgn4 Dst", "page": 1, "cc": 104, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign4_amount": {"name": "Asgn4 Amt", "page": 1, "cc": 105, "min": 0, "max": 127, "model": 1, "opts": null}, "assign5_source": {"name": "Asgn5 Src", "page": 1, "cc": 106, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign5_destination": {"name": "Asgn5 Dst", "page": 1, "cc": 107, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign5_amount": {"name": "Asgn5 Amt", "page": 1, "cc": 108, "min": 0, "max": 127, "model": 1, "opts": null}, "assign6_source": {"name": "Asgn6 Src", "page": 1, "cc": 109, "min": 0, "max": 27, "model": 1, "opts": "opts_mod_source"}, "assign6_destination": {"name": "Asgn6 Dst", "page": 1, "cc": 110, "min": 0, "max": 122, "model": 1, "opts": "opts_mod_dest"}, "assign6_amount": {"name": "Asgn6 Amt", "page": 1, "cc": 111, "min": 0, "max": 127, "model": 1, "opts": null}, "input_follower_mode": {"name": "Input Follower", "page": 1, "cc": 38, "min": 0, "max": 9, "model": 2, "opts": "opts_input_follower"}, "vocoder_mode": {"name": "Vocoder Mode", "page": 1, "cc": 39, "min": 0, "max": 12, "model": 2, "opts": "opts_vocoder_mode"}, "input_ringmod": {"name": "Input RingMod", "page": 1, "cc": 99, "min": 0, "max": 127, "model": 1, "opts": null}};
+var PARAM_ORDER = ["osc1_shape", "osc1_pulsewidth", "osc1_wave_select", "osc1_semitone", "osc1_keyfollow", "osc2_shape", "osc2_pulsewidth", "osc2_wave_select", "osc2_semitone", "osc2_detune", "osc2_fm_amount", "osc2_sync", "osc2_filt_env_amt", "fm_filt_env_amt", "osc2_keyfollow", "osc_balance", "sub_osc_volume", "sub_osc_shape", "osc_mainvolume", "noise_volume", "ringmod_volume", "noise_color", "cutoff", "cutoff2_offset", "filter1_resonance", "filter2_resonance", "filter1_env_amt", "filter2_env_amt", "filter1_keyfollow", "filter2_keyfollow", "filter_balance", "saturation_curve", "filter1_mode", "filter2_mode", "filter_routing", "flt_attack", "flt_decay", "flt_sustain", "flt_sustain_time", "flt_release", "amp_attack", "amp_decay", "amp_sustain", "amp_sustain_time", "amp_release", "lfo1_rate", "lfo1_shape", "lfo1_env_mode", "lfo1_mode", "lfo1_symmetry", "lfo1_keyfollow", "lfo1_keytrigger", "osc1_lfo1_amount", "osc2_lfo1_amount", "pw_lfo1_amount", "reso_lfo1_amount", "filtgain_lfo1_amount", "lfo2_rate", "lfo2_shape", "lfo2_env_mode", "lfo2_mode", "lfo2_symmetry", "lfo2_keyfollow", "lfo2_keytrigger", "shape_lfo2_amount", "fm_lfo2_amount", "cutoff1_lfo2_amount", "cutoff2_lfo2_amount", "pan_lfo2_amount", "patch_volume", "panorama", "transpose", "key_mode", "unison_mode", "unison_detune", "unison_pan_spread", "unison_lfo_phase", "input_mode", "portamento_time", "chorus_mix", "chorus_rate", "chorus_depth", "chorus_delay", "chorus_feedback", "chorus_lfo_shape", "delay_reverb_mode", "effect_send", "delay_time", "delay_feedback", "delay_rate_rev_decay", "delay_depth", "delay_lfo_shape", "delay_color", "arp_mode", "arp_pattern", "arp_octave_range", "arp_hold", "arp_note_length", "arp_swing", "arp_clock", "lfo3_rate", "lfo3_shape", "lfo3_mode", "lfo3_keyfollow", "lfo3_destination", "osc_lfo3_amount", "lfo3_fadein_time", "lfo3_clock", "clock_tempo", "lfo1_clock", "lfo2_clock", "delay_clock", "filter1_env_polarity", "filter2_env_polarity", "filter2_cutoff_link", "filter_keytrack_base", "osc_fm_mode", "osc_init_phase", "punch_intensity", "bender_range_up", "bender_range_down", "filter_select", "osc1_shape_velocity", "osc2_shape_velocity", "pulsewidth_velocity", "fm_amount_velocity", "flt1_envamt_velocity", "flt2_envamt_velocity", "resonance1_velocity", "resonance2_velocity", "amp_velocity", "panorama_velocity", "assign1_source", "assign1_destination", "assign1_amount", "assign2_source", "assign2_dest1", "assign2_amount1", "assign2_dest2", "assign2_amount2", "assign3_source", "assign3_dest1", "assign3_amount1", "assign3_dest2", "assign3_amount2", "assign3_dest3", "assign3_amount3", "lfo1_assign_dest", "lfo1_assign_amount", "lfo2_assign_dest", "lfo2_assign_amount", "osc3_mode", "osc3_volume", "osc3_semitone", "osc3_detune", "phaser_mode", "phaser_mix", "phaser_rate", "phaser_depth", "phaser_frequency", "phaser_feedback", "phaser_spread", "low_eq_freq", "high_eq_freq", "mid_eq_gain", "mid_eq_freq", "mid_eq_q", "low_eq_gain", "high_eq_gain", "distortion_curve", "distortion_intensity", "bass_intensity", "bass_tune", "assign4_source", "assign4_destination", "assign4_amount", "assign5_source", "assign5_destination", "assign5_amount", "assign6_source", "assign6_destination", "assign6_amount", "input_follower_mode", "vocoder_mode", "input_ringmod"];
+/* Bipolar params (Virus "signed"/"pan" display): raw 0-127 with 64 = 0 center.
+   Generated from parameterDescriptions_C.json toText; see gen_web_ui_params.py. */
+var BIPOLAR = {"osc1_semitone":1, "osc1_keyfollow":1, "osc2_semitone":1, "osc2_filt_env_amt":1, "fm_filt_env_amt":1, "osc2_keyfollow":1, "osc_balance":1, "noise_color":1, "cutoff2_offset":1, "filter1_keyfollow":1, "filter2_keyfollow":1, "filter_balance":1, "lfo1_symmetry":1, "osc1_lfo1_amount":1, "osc2_lfo1_amount":1, "pw_lfo1_amount":1, "reso_lfo1_amount":1, "filtgain_lfo1_amount":1, "lfo2_symmetry":1, "shape_lfo2_amount":1, "fm_lfo2_amount":1, "cutoff1_lfo2_amount":1, "cutoff2_lfo2_amount":1, "pan_lfo2_amount":1, "panorama":1, "transpose":1, "unison_lfo_phase":1, "chorus_feedback":1, "delay_color":1, "arp_note_length":1, "bender_range_up":1, "bender_range_down":1, "osc1_shape_velocity":1, "osc2_shape_velocity":1, "pulsewidth_velocity":1, "fm_amount_velocity":1, "flt1_envamt_velocity":1, "flt2_envamt_velocity":1, "resonance1_velocity":1, "resonance2_velocity":1, "amp_velocity":1, "panorama_velocity":1, "assign1_amount":1, "assign2_amount1":1, "assign2_amount2":1, "assign3_amount1":1, "assign3_amount2":1, "assign3_amount3":1, "lfo1_assign_amount":1, "lfo2_assign_amount":1, "osc3_semitone":1, "phaser_feedback":1, "assign4_amount":1, "assign5_amount":1, "assign6_amount":1};
+var LABELS = { osc2_filt_env_amt:"Env\u2192Pitch", fm_filt_env_amt:"Env\u2192FM", portamento_time:"Porta", osc_init_phase:"Init Phase",
+    ringmod_volume:"Ring Mod", osc_balance:"Osc 1\u21942", filter_keytrack_base:"KeyTrk Base", cutoff2_offset:"Cutoff 2",
+    bender_range_up:"Bend Up", bender_range_down:"Bend Dn", effect_send:"FX Send", noise_color:"Noise Color", clock_tempo:"Tempo",
+    sub_osc_volume:"Sub Osc", osc_mainvolume:"Osc Vol", delay_rate_rev_decay:"Rate / Dec", input_ringmod:"In Ring",
+    bass_intensity:"Boost", bass_tune:"Boost Tune", patch_volume:"Patch Vol", osc_lfo3_amount:"Osc Amt",
+    osc1_lfo1_amount:"\u2192Osc1", osc2_lfo1_amount:"\u2192Osc2", pw_lfo1_amount:"\u2192PW", reso_lfo1_amount:"\u2192Reso", filtgain_lfo1_amount:"\u2192FltGain",
+    shape_lfo2_amount:"\u2192Shape", fm_lfo2_amount:"\u2192FM", cutoff1_lfo2_amount:"\u2192Cut1", cutoff2_lfo2_amount:"\u2192Cut2", pan_lfo2_amount:"\u2192Pan",
+    lfo1_assign_dest:"Assign Dst", lfo1_assign_amount:"Assign Amt", lfo2_assign_dest:"Assign Dst", lfo2_assign_amount:"Assign Amt" };
+var SKINS = {
+    0:{ bg:"#16110f",surf:"#7a201a",surf2:"#9a2a22",line:"rgba(0,0,0,.32)",ink:"#fdf3ef",mut:"#eab9b0",
+        acc:"#f5a623",acc2:"#ff7044",led:"#ffc01f",val:"#f6e2db",skirt:"rgba(255,235,225,.40)",ptr:"#ffffff",
+        track:"rgba(255,255,255,.13)",chrome:"#1a1411",chromeink:"#fbeee8",chromemut:"#b29a91",gloss:"rgba(255,238,214,.24)",cap1:"#57392e",cap2:"#0b0503",
+        cheek1:"#7c2018",cheek2:"#3d0f0a",lcdbg:"linear-gradient(180deg,#9ece4d,#80b438)",lcdink:"#16280b",lcdframe:"#37460e",
+        wellbd:"#000",wellring:"0 0 0 1px rgba(0,0,0,0)",
+        name:"MODEL A \u00b7 12 VOICE",lcd:["Soft Saw Pad","RAM-A \u00b7 034 / 128"] },
+    1:{ bg:"#c6cacf",surf:"#22304a",surf2:"#2c3a56",line:"rgba(255,255,255,.14)",ink:"#ffffff",mut:"#c2cad8",
+        acc:"#3d82e6",acc2:"#46cbe6",led:"#54b6ff",val:"#eef3fb",skirt:"rgba(220,232,250,.40)",ptr:"#ffffff",cap1:"#34415c",cap2:"#0f131b",
+        track:"rgba(255,255,255,.13)",chrome:"#c6cacf",chromeink:"#19233a",chromemut:"#5c6878",
+        gloss:"rgba(255,255,255,.16)",cheek1:"#c9cdd2",cheek2:"#8d9197",lcdbg:"linear-gradient(180deg,#5e86c2,#4a72ad)",lcdink:"#091a30",lcdframe:"#26426a",
+        wellbd:"rgba(0,0,0,.5)",wellring:"0 0 0 1px rgba(0,0,0,0)",
+        name:"MODEL B \u00b7 24 VOICE",lcd:["HyperBass MS","RAM-B \u00b7 071 / 128"] },
+    2:{ bg:"#0e0f11",surf:"#1c2026",surf2:"#23282f",line:"rgba(116,156,191,.42)",ink:"#eaedf1",mut:"#94a3b4",
+        acc:"#ff3a22",acc2:"#7fa6c8",led:"#ff3320",val:"#cdd3da",skirt:"rgba(220,232,242,.28)",ptr:"#15171a",cap1:"#9aa0a8",cap2:"#191b1e",
+        track:"rgba(255,255,255,.10)",chrome:"#121315",chromeink:"#eaedf1",chromemut:"#8f99a6",
+        gloss:"rgba(255,255,255,.12)",cheek1:"#8a5a2e",cheek2:"#46290f",lcdbg:"linear-gradient(180deg,#1c0706,#120403)",lcdink:"#ff3b27",lcdframe:"#5a1410",
+        wellbd:"rgba(140,176,212,.62)",wellring:"0 0 0 1px rgba(150,182,216,.14)",
+        name:"MODEL C \u00b7 32 VOICE",lcd:["Black Velvet SV","RAM-C \u00b7 012 / 128"] }
+  };
+/* Readable mod-matrix destination names. Order matches the engine destination
+   enum 1:1 (verified against the AUTO-GENERATED opts_mod_dest above); re-verify
+   if g_params / the destination enum changes. */
+OPTS.opts_mod_dest = ["Off","PatchVol","ChannelVol","Panorama","Transpose","Portamento","Osc1 Shape","Osc1 PW","Osc1 Wave","Osc1 Pitch","Osc1 KeyF","Osc2 Shape","Osc2 PW","Osc2 Wave","Osc2 Pitch","Osc2 Detune","Osc2 FM","Osc2 EnvAmt","FM EnvAmt","Osc2 KeyF","OscBalance","SubOscVol","OscMainVol","NoiseVol","Cutoff","Cutoff2","Filt1 Reso","Filt2 Reso","Flt1 EnvAmt","Flt2 EnvAmt","Flt1 KeyF","Flt2 KeyF","FltBalance","Flt Attack","Flt Decay","Flt Sustain","Flt SusTime","Flt Release","Amp Attack","Amp Decay","Amp Sustain","Amp SusTime","Amp Release","Lfo1 Rate","Lfo1 Cont","Lfo1>Osc1","Lfo1>Osc2","Lfo1>PW","Lfo1>Reso","Lfo1>FltGn","Lfo2 Rate","Lfo2 Cont","Lfo2>Shape","Lfo2>FM","Lfo2>Cut1","Lfo2>Cut2","Lfo2>Pan","Lfo3 Rate","Lfo3>Osc","UniDetune","UniSpread","UniLfoPhs","ChorusMix","ChorusRate","ChorusDpth","ChorusDly","ChorusFeed","EffectSend","DelayTime","DelayFeed","DelayRate","DelayDepth","Osc1ShpVel","Osc2ShpVel","PW Vel","FM Vel","Flt1EnvVel","Flt2EnvVel","Reso1 Vel","Reso2 Vel","Amp Vel","Pan Vel","Ass1 Amt1","Ass2 Amt1","Ass2 Amt2","Ass3 Amt1","Ass3 Amt2","Ass3 Amt3","OscInitPhs","Punch","RingMod","NoiseColor","DelayColor","ABoost Int","ABoost Tune","Dist Int","RingmodMix","Osc3 Vol","Osc3 Semi","Osc3 Detune","Lfo1AssAmt","Lfo2AssAmt","PhaserMix","PhaserRate","PhaserDept","PhaserFreq","PhaserFdbk","PhaserSprd","Revb Decay","RevDamping","Revb Color","RevPredly","RevFeedbck","SecBalance","ArpNoteLen","Arp Swing","ArpPattern","EqMidGain","EqMidFreq","EqMidQ","Asgn4 Amt","Asgn5 Amt","Asgn6 Amt"];
+</script>
+<script>
+(function(){
+  "use strict";
+  var PREFIX = "synth:";
+  var _pm=(location.search.match(/[?&]model=([abcABC])/)||[])[1];
+  var remote = window.schwungRemote || {
+    _v:_pm?{"synth:rom_model":_pm.toUpperCase()}:{},
+    getParam:function(k){ return Promise.resolve(this._v[k]); },
+    setParam:function(k,v){ this._v[k]=String(v); },
+    onParamChange:function(){}, getHierarchy:function(){return Promise.resolve(null);}, getChainParams:function(){return Promise.resolve(null);}
+  };
+
+  var NS="http://www.w3.org/2000/svg";
+  var state={ values:{}, level:0, built:false, lastPreset:null, lastBank:null, _rsy:0 };
+  var controls={};            // key -> [listener,...]
+  var zoneEls={}, _menu=null, _menuOwner=null, _spy=null;
+
+  /* ---- low-level helpers ---- */
+  function num(x){ var n=parseFloat(x); return isNaN(n)?0:n; }
+  function el(t,c,x){ var e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e; }
+  function ns(t,a){ var e=document.createElementNS(NS,t); if(a)for(var k in a)e.setAttribute(k,a[k]); return e; }
+  function isOffOn(o){ return o&&o.length===2 && /off/i.test(o[0]) && /on/i.test(o[1]); }
+  function polar(cx,cy,r,deg){ var a=deg*Math.PI/180; return [cx+r*Math.sin(a), cy-r*Math.cos(a)]; }
+  function arc(cx,cy,r,f,t){ var a=polar(cx,cy,r,f), b=polar(cx,cy,r,t), big=(t-f)>180?1:0;
+    return "M"+a[0].toFixed(2)+","+a[1].toFixed(2)+" A"+r+","+r+" 0 "+big+" 1 "+b[0].toFixed(2)+","+b[1].toFixed(2); }
+
+  /* ---- transport / binding layer (device <-> UI). KEEP. ---- */
+  function setParam(key,v){ v=String(v); state.values[key]=v; remote.setParam(PREFIX+key,v);
+    var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }
+  function onValue(key,fn){ (controls[key]||(controls[key]=[])).push(fn); }
+  function pushValue(key,v){ state.values[key]=String(v); var a=controls[key]; if(a) for(var i=0;i<a.length;i++){ try{a[i](v);}catch(e){} } }
+  var bind=onValue;
+
+  /* read/write used by every control */
+  function val(key){ var m=PARAMS[key]; var d=m?m.min:0; var v=state.values[key]; return num(v!==undefined&&v!==""?v:d); }
+  function setVal(key,v){ var m=PARAMS[key]; if(!m) return; v=Math.max(m.min,Math.min(m.max,Math.round(v)));
+    if(state.values[key]!==undefined && num(state.values[key])===v) return; setParam(key,v); }
+
+  function optText(m,v){ if(!m.opts) return ""; var a=OPTS[m.opts]||[]; return a[v]!==undefined?a[v]:String(v); }
+  function lblText(key,m){ if(LABELS[key]) return LABELS[key];
+    var n=m.name;
+    n=n.replace(/^Osc[123]?\s/i,"").replace(/^Filt[12]?\s/i,"").replace(/^Flt\s/i,"").replace(/^LFO[123]\s/i,"")
+       .replace(/^Amp\s/i,"").replace(/^Chorus\s/i,"").replace(/^Phaser\s/i,"").replace(/^Delay\s/i,"")
+       .replace(/^Arp\s/i,"").replace(/^Unison\s/i,"").replace(/^Sub\s/i,"").replace(/^Mid EQ\s/i,"Mid ").replace(/^Lo EQ\s/i,"Lo ").replace(/^Hi EQ\s/i,"Hi ");
+    return n.trim()||m.name; }
+
+  /* ---- zone layout (signal-flow grouping + model gating via PARAMS[].model) ---- */
+  function ZONES(){ return [
+    { id:"osc", label:"Oscillators", cards:[
+      { t:"Oscillator 1", keys:["osc1_wave_select","osc1_shape","osc1_pulsewidth","osc1_semitone","osc1_keyfollow"] },
+      { t:"Oscillator 2", keys:["osc2_wave_select","osc2_shape","osc2_pulsewidth","osc2_semitone","osc2_detune","osc2_sync","osc_fm_mode","osc2_fm_amount","osc2_filt_env_amt","fm_filt_env_amt","osc2_keyfollow"] },
+      { t:"Oscillator 3", keys:["osc3_mode","osc3_volume","osc3_semitone","osc3_detune"] },
+      { t:"Mixer", keys:["osc_balance","osc_mainvolume","sub_osc_volume","sub_osc_shape","noise_volume","noise_color","ringmod_volume","osc_init_phase","punch_intensity"] }
+    ]},
+    { id:"filter", label:"Filters", scope:"filter", cards:[
+      { t:"Filter 1", keys:["cutoff","filter1_resonance","filter1_env_amt","filter1_keyfollow","filter1_mode","filter1_env_polarity"] },
+      { t:"Filter 2", keys:["cutoff2_offset","filter2_resonance","filter2_env_amt","filter2_keyfollow","filter2_mode","filter2_env_polarity","filter2_cutoff_link"] },
+      { t:"Routing & Saturation", keys:["filter_routing","filter_select","filter_balance","saturation_curve","filter_keytrack_base"] }
+    ]},
+    { id:"env", label:"Envelopes", scope:"env", cards:[
+      { t:"Amplifier", keys:["amp_attack","amp_decay","amp_sustain","amp_sustain_time","amp_release"] },
+      { t:"Filter", keys:["flt_attack","flt_decay","flt_sustain","flt_sustain_time","flt_release"] },
+      { t:"Velocity Modulation", keys:["osc1_shape_velocity","osc2_shape_velocity","pulsewidth_velocity","fm_amount_velocity","flt1_envamt_velocity","flt2_envamt_velocity","resonance1_velocity","resonance2_velocity","amp_velocity","panorama_velocity"] }
+    ]},
+    { id:"lfo", label:"LFOs", cards:[
+      { t:"LFO 1", keys:["lfo1_rate","lfo1_clock","lfo1_shape","lfo1_mode","lfo1_env_mode","lfo1_symmetry","lfo1_keyfollow","lfo1_keytrigger"] },
+      { t:"LFO 1 → Routing", keys:["osc1_lfo1_amount","osc2_lfo1_amount","pw_lfo1_amount","reso_lfo1_amount","filtgain_lfo1_amount","lfo1_assign_dest","lfo1_assign_amount"] },
+      { t:"LFO 2", keys:["lfo2_rate","lfo2_clock","lfo2_shape","lfo2_mode","lfo2_env_mode","lfo2_symmetry","lfo2_keyfollow","lfo2_keytrigger"] },
+      { t:"LFO 2 → Routing", keys:["shape_lfo2_amount","fm_lfo2_amount","cutoff1_lfo2_amount","cutoff2_lfo2_amount","pan_lfo2_amount","lfo2_assign_dest","lfo2_assign_amount"] },
+      { t:"LFO 3", keys:["lfo3_rate","lfo3_clock","lfo3_shape","lfo3_mode","lfo3_keyfollow","lfo3_fadein_time"] },
+      { t:"LFO 3 → Routing", keys:["lfo3_destination","osc_lfo3_amount"] }
+    ]},
+    { id:"mod", label:"Mod Matrix", cards:[ { matrix:true } ] },
+    { id:"fx", label:"Effects", cards:[
+      { t:"Chorus", keys:["chorus_mix","chorus_rate","chorus_depth","chorus_delay","chorus_feedback","chorus_lfo_shape"] },
+      { t:"Delay / Reverb", keys:["delay_reverb_mode","effect_send","delay_time","delay_rate_rev_decay","delay_feedback","delay_depth","delay_color","delay_lfo_shape","delay_clock"] },
+      { t:"Phaser", keys:["phaser_mode","phaser_mix","phaser_rate","phaser_depth","phaser_frequency","phaser_feedback","phaser_spread"] },
+      { t:"3-Band EQ", keys:["low_eq_gain","low_eq_freq","mid_eq_gain","mid_eq_freq","mid_eq_q","high_eq_gain","high_eq_freq"] },
+      { t:"Distortion & Boost", keys:["distortion_curve","distortion_intensity","input_ringmod","bass_intensity","bass_tune"] }
+    ]},
+    { id:"voice", label:"Arp · Voice", cards:[
+      { t:"Arpeggiator", keys:["arp_mode","arp_pattern","arp_octave_range","arp_hold","arp_note_length","arp_swing","arp_clock","clock_tempo"] },
+      { t:"Unison", keys:["unison_mode","unison_detune","unison_pan_spread","unison_lfo_phase"] },
+      { t:"Input & Vocoder", keys:["input_mode","input_follower_mode","vocoder_mode"] },
+      { t:"Voice / Output", keys:["patch_volume","panorama","key_mode","transpose","portamento_time","bender_range_up","bender_range_down"] }
+    ]}
+  ]; }
+  function MATRIX(){ return [
+    { n:1, src:"assign1_source", pairs:[["assign1_destination","assign1_amount"]] },
+    { n:2, src:"assign2_source", pairs:[["assign2_dest1","assign2_amount1"],["assign2_dest2","assign2_amount2"]] },
+    { n:3, src:"assign3_source", pairs:[["assign3_dest1","assign3_amount1"],["assign3_dest2","assign3_amount2"],["assign3_dest3","assign3_amount3"]] },
+    { n:4, src:"assign4_source", pairs:[["assign4_destination","assign4_amount"]] },
+    { n:5, src:"assign5_source", pairs:[["assign5_destination","assign5_amount"]] },
+    { n:6, src:"assign6_source", pairs:[["assign6_destination","assign6_amount"]] }
+  ]; }
+
+  /* ---- controls ---- */
+  function knob(key,m){
+    var min=m.min,max=m.max; if(max<=min)max=min+1;
+    var bip=!!BIPOLAR[key],center=64,signed=bip||min<0, range=max-min;
+    var cell=el("div","k"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var ring=el("div","ring"); var svg=ns("svg",{viewBox:"0 0 40 40"});
+    var tk="",N=11,i; for(i=0;i<N;i++){ var dd=-135+i*(270/(N-1)); var bigT=(i===0||i===N-1||i===5);
+      var a=polar(20,20,17.4,dd), b=polar(20,20,bigT?13.8:15.2,dd); tk+="M"+a[0].toFixed(2)+","+a[1].toFixed(2)+"L"+b[0].toFixed(2)+","+b[1].toFixed(2); }
+    svg.appendChild(ns("path",{"class":"ktick",d:tk}));
+    svg.appendChild(ns("path",{"class":"rt",d:arc(20,20,17.4,-135,135)}));
+    var fill=ns("path",{"class":"rf"}); svg.appendChild(fill);
+    svg.appendChild(ns("circle",{cx:20,cy:20,r:11.3,fill:"url(#kcap)",stroke:"rgba(0,0,0,.6)","stroke-width":".8",style:"filter:drop-shadow(0 1.3px 1.3px rgba(0,0,0,.55))"}));
+    svg.appendChild(ns("ellipse",{cx:16.6,cy:15.4,rx:5.6,ry:3.3,fill:"var(--gloss)"}));
+    var ptr=ns("line",{"class":"rk"}); svg.appendChild(ptr);
+    ring.appendChild(svg); cell.appendChild(ring);
+    var rv=el("div","rv"); cell.appendChild(rv);
+    function draw(){
+      var v=Math.max(min,Math.min(max,val(key)));
+      var frac=(v-min)/(max-min),deg=-135+frac*270, degC=bip?(-135+(center-min)/(max-min)*270):-135;
+      fill.setAttribute("d", bip?arc(20,20,17.4,Math.min(deg,degC),Math.max(deg,degC)):arc(20,20,17.4,-135,deg));
+      var pe=polar(20,20,10.2,deg), pi=polar(20,20,3.4,deg);
+      ptr.setAttribute("x1",pi[0].toFixed(2)); ptr.setAttribute("y1",pi[1].toFixed(2)); ptr.setAttribute("x2",pe[0].toFixed(2)); ptr.setAttribute("y2",pe[1].toFixed(2));
+      var disp=bip?Math.round(v)-center:Math.round(v); rv.textContent=(signed&&disp>0?"+":"")+disp;
+    }
+    draw(); bind(key,draw);
+    ring.addEventListener("wheel",function(e){ e.preventDefault();
+      var step=e.shiftKey?1:Math.max(1,Math.round(range/48));
+      setVal(key, val(key)-Math.sign(e.deltaY)*step); },{passive:false});
+    ring.addEventListener("pointerdown",function(e){ e.preventDefault(); closeMenu();
+      var startY=e.clientY, startV=val(key); try{ring.setPointerCapture(e.pointerId);}catch(_){}
+      function mv(ev){ var dy=startY-ev.clientY; setVal(key, startV+dy*(range/150)*(ev.shiftKey?0.25:1)); }
+      function up(){ ring.removeEventListener("pointermove",mv); ring.removeEventListener("pointerup",up); }
+      ring.addEventListener("pointermove",mv); ring.addEventListener("pointerup",up); });
+    ring.addEventListener("dblclick",function(){ setVal(key, bip?center:Math.round((min+max)/2)); });
+    return cell;
+  }
+  function select(key,m){
+    var wide=(m.opts==="opts_mod_dest"||m.opts==="opts_mod_source"||m.opts==="opts_delay_reverb_mode");
+    var cell=el("div","k sel"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var chip=el("div","chip"+(wide?" wide":"")); chip.appendChild(el("span","led"));
+    var cv=el("span","cv"); chip.appendChild(cv); chip.appendChild(el("span","ca"));
+    cell.appendChild(chip);
+    function draw(){ cv.textContent=optText(m,val(key)); }
+    draw(); bind(key,draw);
+    chip.addEventListener("click",function(e){ e.stopPropagation(); if(_menu&&_menuOwner===chip){ closeMenu(); return; } openMenu(chip,key,m); });
+    return cell;
+  }
+  function toggle(key,m){
+    var opts=OPTS[m.opts]||["Off","On"];
+    var cell=el("div","k tg"); cell.setAttribute("data-pk",key);
+    cell.appendChild(el("div","lab",lblText(key,m)));
+    var b=el("div","tgl"); b.appendChild(el("span","l")); cell.appendChild(b);
+    var st=el("div","st"); cell.appendChild(st);
+    function draw(){ var on=val(key)>=1; cell.classList.toggle("on",on); b.classList.toggle("on",on); st.textContent=on?opts[1]:opts[0]; }
+    draw(); bind(key,draw);
+    cell.style.cursor="pointer";
+    cell.addEventListener("click",function(){ setVal(key, val(key)>=1?0:1); });
+    return cell;
+  }
+  function openMenu(anchor,key,m){
+    closeMenu(); var menu=el("div","selmenu");
+    var opts=OPTS[m.opts]||[], cur=val(key);
+    opts.forEach(function(label,i){ var it=el("div","selopt"+(i===cur?" on":""),label);
+      it.addEventListener("click",function(e){ e.stopPropagation(); setVal(key,i); closeMenu(); });
+      menu.appendChild(it); });
+    document.body.appendChild(menu);
+    var r=anchor.getBoundingClientRect();
+    menu.style.left=Math.min(r.left, window.innerWidth-menu.offsetWidth-8)+"px";
+    var below=window.innerHeight-r.bottom-12;
+    if(menu.offsetHeight>below && r.top>below){ menu.style.maxHeight=Math.min(300,r.top-12)+"px"; menu.style.top=""; menu.style.bottom=(window.innerHeight-r.top+4)+"px"; }
+    else { menu.style.maxHeight=Math.min(300,below)+"px"; menu.style.top=(r.bottom+4)+"px"; }
+    var on=menu.querySelector(".selopt.on"); if(on) menu.scrollTop=on.offsetTop-menu.clientHeight/2;
+    _menu=menu; _menuOwner=anchor;
+  }
+  function closeMenu(){ if(_menu){ _menu.remove(); _menu=null; _menuOwner=null; } }
+  function control(key){
+    var m=PARAMS[key]; if(!m||(m.model||0)>state.level) return null;
+    if(m.opts){ var arr=OPTS[m.opts]; return (arr&&isOffOn(arr))?toggle(key,m):select(key,m); }
+    return knob(key,m);
+  }
+
+  /* ---- scopes ---- */
+  function liveScope(buildFn, watch){
+    var holder=el("div","scopeholder");
+    function rebuild(){ holder.innerHTML=""; holder.appendChild(buildFn()); }
+    rebuild(); watch.forEach(function(k){ onValue(k,rebuild); });
+    return holder;
+  }
+  function dispSvg(W,H){ var d=el("div","disp"); d.style.width=W+"px"; d.style.height=H+"px"; var svg=ns("svg",{viewBox:"0 0 "+W+" "+H,preserveAspectRatio:"none"}); d._svg=svg; d.appendChild(svg); return d; }
+  function grid(svg,W,H,n){ for(var i=1;i<n;i++){ var x=W*i/n; svg.appendChild(ns("line",{"class":"gline",x1:x,y1:0,x2:x,y2:H})); }
+    svg.appendChild(ns("line",{"class":"gline",x1:0,y1:H/2,x2:W,y2:H/2})); }
+  function poly(pts){ return "M"+pts.map(function(p){return p[0].toFixed(1)+","+p[1].toFixed(1);}).join(" L"); }
+  function vbig(n,lbl){ var d=el("div","vbig"); d.textContent=n; var s=el("span",null,lbl); d.appendChild(s); return d; }
+
+  function filterScope(){
+    var W=300,H=66,pad=6,top=pad,bot=H-pad;
+    var cut=val("cutoff"),reso=val("filter1_resonance"),mode=val("filter1_mode");
+    var padX=8;
+    var disp=dispSvg(W,H), svg=disp._svg;
+    var SPAN=3.4, fcN=0.10+(cut/127)*0.80, Q=0.62+(reso/127)*(reso/127)*14.5;
+    var DBMAX=18, DBMIN=-44;
+    function ydb(db){ return top + (DBMAX-db)/(DBMAX-DBMIN)*(bot-top); }
+    var type,poles;
+    if(mode===1){ type="HP"; poles=2; }
+    else if(mode===2){ type="BP"; poles=2; }
+    else if(mode===3){ type="BS"; poles=2; }
+    else if(mode>=4){ type="LP"; poles=mode-3; }
+    else { type="LP"; poles=4; }
+    var L10=Math.LN10;
+    function mag(r){
+      var lr=Math.log(r)/L10, sig=0.17;
+      var peak=Math.max(0,(Q-0.7))*1.05*Math.exp(-(lr*lr)/(2*sig*sig)), roll;
+      if(type==="LP"){ roll=-10*Math.log(1+Math.pow(r,2*poles))/L10; }
+      else if(type==="HP"){ roll=-10*Math.log(1+Math.pow(1/r,2*poles))/L10; }
+      else if(type==="BP"){ var x=r-1/r; roll=-10*Math.log(1+x*x*9)/L10; peak=Math.max(0,(Q-0.7))*0.7*Math.exp(-(lr*lr)/(2*0.2*0.2)); }
+      else { var n=1-r*r, q=r/Math.max(0.5,Q); roll=10*Math.log((n*n)/((n*n)+q*q)+1e-4)/L10; peak=0; }
+      return roll+peak;
+    }
+    for(var gx=1;gx<6;gx++){ var GX=padX+(gx/6)*(W-2*padX); svg.appendChild(ns("line",{"class":"gline",x1:GX,y1:top,x2:GX,y2:bot})); }
+    svg.appendChild(ns("line",{"class":"gline",x1:padX,y1:ydb(0).toFixed(1),x2:W-padX,y2:ydb(0).toFixed(1)}));
+    var pts=[]; for(var i=0;i<=140;i++){ var xN=i/140, r=Math.pow(10,(xN-fcN)*SPAN), db=mag(r);
+      db=Math.max(DBMIN,Math.min(DBMAX,db)); pts.push([padX+xN*(W-2*padX), ydb(db)]); }
+    var d2=poly(pts);
+    var area=d2+" L"+(W-padX)+","+bot+" L"+padX+","+bot+" Z";
+    svg.appendChild(ns("path",{"class":"carea",d:area,fill:"var(--acc)",stroke:"none"}));
+    svg.appendChild(ns("path",{"class":"curve a",d:d2}));
+    var fx=padX+fcN*(W-2*padX);
+    svg.appendChild(ns("line",{x1:fx,y1:top,x2:fx,y2:bot,stroke:"var(--acc)","stroke-width":"1","stroke-dasharray":"2 3",opacity:".5"}));
+    var leg=el("div","leg");
+    var modes=OPTS.opts_filter1_mode;
+    var slope=(type==="LP"||type==="HP")?(poles*6)+" dB/oct":(type==="BP"?"band-pass":"notch");
+    leg.appendChild(vbig(Math.round(cut),"cutoff"));
+    var r1=el("div","lr"); r1.innerHTML='Mode <b>'+modes[mode]+'</b>'; leg.appendChild(r1);
+    var r2=el("div","lr"); r2.innerHTML='Reso <b>'+Math.round(reso)+'</b>  ·  <b>'+slope+'</b>'; leg.appendChild(r2);
+    var w=el("div","scope"); w.appendChild(disp); w.appendChild(leg); return w;
+  }
+  function envCell(prefix,cls,label){
+    var W=362,H=64,pad=6,top=pad,bot=H-pad, segW=W-2*pad;
+    var FA=segW*0.22, FD=segW*0.22, FS=segW*0.20, FR=segW*0.22;
+    var col=cls==="a"?"var(--acc)":"var(--acc2)";
+    var disp=dispSvg(W,H), svg=disp._svg; grid(svg,W,H,4);
+    var area=ns("path",{"class":"carea",fill:col,stroke:"none"}); svg.appendChild(area);
+    var line=ns("path",{"class":"curve "+cls,"vector-effect":"non-scaling-stroke"}); svg.appendChild(line);
+    function geom(){
+      var a=val(prefix+"_attack"),d=val(prefix+"_decay"),s=val(prefix+"_sustain"),st=val(prefix+"_sustain_time"),r=val(prefix+"_release");
+      var x0=pad,x1=x0+4+(a/127)*FA,x2=x1+4+(d/127)*FD,x3=x2+6+(st/127)*FS,sy=bot-(s/127)*(bot-top);
+      var x4=Math.min(W-pad,x3+4+(r/127)*FR);
+      return {x0:x0,x1:x1,x2:x2,x3:x3,x4:x4,sy:sy};
+    }
+    var handles=[
+      {sx:"_attack",f:FA,axis:"x",gx:"x1",gy:function(){return top;}},
+      {sx:"_decay",f:FD,axis:"x",gx:"x2",gy:function(g){return g.sy;},sy:"_sustain"},
+      {sx:"_sustain_time",f:FS,axis:"x",gx:"x3",gy:function(g){return g.sy;}},
+      {sx:"_release",f:FR,axis:"x",gx:"x4",gy:function(){return bot;}}
+    ];
+    var hEls=handles.map(function(){ var hit=ns("circle",{r:9,fill:"transparent",style:"cursor:grab"});
+      var dot=ns("circle",{r:3,fill:col,stroke:"#0a0b0c","stroke-width":"1"}); svg.appendChild(hit); svg.appendChild(dot); return {hit:hit,dot:dot}; });
+    function draw(){ var g=geom();
+      var pts=[[g.x0,bot],[g.x1,top],[g.x2,g.sy],[g.x3,g.sy],[g.x4,bot]];
+      line.setAttribute("d",poly(pts));
+      area.setAttribute("d",poly(pts)+" L"+g.x4.toFixed(1)+","+bot+" L"+g.x0+","+bot+" Z");
+      handles.forEach(function(h,i){ var cx=g[h.gx], cy=h.gy(g);
+        hEls[i].hit.setAttribute("cx",cx); hEls[i].hit.setAttribute("cy",cy);
+        hEls[i].dot.setAttribute("cx",cx); hEls[i].dot.setAttribute("cy",cy); });
+    }
+    draw();
+    [prefix+"_attack",prefix+"_decay",prefix+"_sustain",prefix+"_sustain_time",prefix+"_release"].forEach(function(k){ bind(k,draw); });
+    handles.forEach(function(h,i){
+      hEls[i].hit.addEventListener("pointerdown",function(e){ e.preventDefault(); e.stopPropagation(); closeMenu();
+        var sx0=e.clientX, sy0=e.clientY, sA=val(prefix+h.sx), sS=h.sy?val(prefix+h.sy):0;
+        try{hEls[i].hit.setPointerCapture(e.pointerId);}catch(_){}
+        function mv(ev){ setVal(prefix+h.sx, sA+(ev.clientX-sx0)/h.f*127);
+          if(h.sy) setVal(prefix+h.sy, sS-(ev.clientY-sy0)/(bot-top)*127); }
+        function up(){ hEls[i].hit.removeEventListener("pointermove",mv); hEls[i].hit.removeEventListener("pointerup",up); }
+        hEls[i].hit.addEventListener("pointermove",mv); hEls[i].hit.addEventListener("pointerup",up); });
+    });
+    var cell=el("div","gcell");
+    var gl=el("div","gl"); gl.innerHTML='<i style="background:'+col+'"></i>'+label+'  <em style="font-style:normal;opacity:.55;font-weight:600">drag points</em>'; cell.appendChild(gl);
+    cell.appendChild(disp); return cell;
+  }
+  function envScope(){
+    var row=el("div","scoperow between");
+    [["amp","a","Amplifier"],["flt","b","Filter"]].forEach(function(c){
+      var card=el("div","scope"); card.appendChild(envCell(c[0],c[1],c[2])); row.appendChild(card); });
+    return row;
+  }
+
+  function amtBar(key){
+    var wrap=el("div","amt"),bar=el("div","bar"); bar.appendChild(el("div","mid"));
+    var f=el("div","fil"); bar.appendChild(f); var vt=el("div","v");
+    function draw(){ var v=val(key),disp=v-64,frac=Math.abs(disp)/63,w=frac*50;
+      f.style.left=(disp>=0?"50%":(50-w)+"%"); f.style.width=w+"%"; vt.textContent=(disp>0?"+":"")+disp; }
+    draw(); bind(key,draw);
+    wrap.appendChild(bar); wrap.appendChild(vt);
+    bar.style.cursor="ew-resize"; bar.style.touchAction="none";
+    bar.addEventListener("pointerdown",function(e){ e.preventDefault(); closeMenu(); try{bar.setPointerCapture(e.pointerId);}catch(_){}
+      function set(ev){ var r=bar.getBoundingClientRect(); var fr=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width)); setVal(key,Math.round(fr*127)); }
+      set(e); function mv(ev){ set(ev); } function up(){ bar.removeEventListener("pointermove",mv); bar.removeEventListener("pointerup",up); }
+      bar.addEventListener("pointermove",mv); bar.addEventListener("pointerup",up); });
+    return wrap;
+  }
+  function matrixChip(key){
+    var m=PARAMS[key];
+    var chip=el("div","chip"); chip.appendChild(el("span","led"));
+    var cv=el("span","cv"); chip.appendChild(cv); chip.appendChild(el("span","ca"));
+    function draw(){ cv.textContent=optText(m,val(key)); }
+    draw(); bind(key,draw);
+    chip.addEventListener("click",function(e){ e.stopPropagation(); if(_menu&&_menuOwner===chip){ closeMenu(); return; } openMenu(chip,key,m); });
+    return chip;
+  }
+  function matrixEl(){
+    var wrap=el("div","mx"), any=false;
+    MATRIX().forEach(function(slot){
+      var sm=PARAMS[slot.src]; if((sm.model||0)>state.level) return; any=true;
+      var row=el("div","mr"); row.appendChild(el("div","n",String(slot.n)));
+      var src=el("div","src"); src.appendChild(matrixChip(slot.src)); row.appendChild(src);
+      var flow=el("div","flow");
+      slot.pairs.forEach(function(p){
+        var dp=el("div","dp"); dp.appendChild(el("span","ar","→"));
+        dp.appendChild(matrixChip(p[0]));
+        dp.appendChild(amtBar(p[1])); flow.appendChild(dp); });
+      row.appendChild(flow); wrap.appendChild(row);
+    });
+    return any?wrap:null;
+  }
+
+  function sectionEl(zone,idx){
+    var groups=[], hasMatrix=false;
+    if(zone.cards.length===1 && zone.cards[0].matrix){ var mx=matrixEl(); if(!mx) return null; hasMatrix=mx; }
+    else {
+      zone.cards.forEach(function(cd){
+        var ctls=el("div","ctls"), has=false;
+        cd.keys.forEach(function(k){ var n=control(k); if(n){ ctls.appendChild(n); has=true; } });
+        if(!has) return;
+        var g=el("div","grp"); if(cd.t) g.appendChild(el("div","gcap",cd.t)); g.appendChild(ctls); groups.push(g);
+      });
+      if(!groups.length) return null;
+    }
+    var sec=el("section","sec"); sec.id="z-"+zone.id;
+    ["tl","tr","bl","br"].forEach(function(c){ sec.appendChild(el("span","scr "+c)); });
+    var h=el("div","shd"); h.appendChild(el("span","led"));
+    h.appendChild(el("span","no",("0"+idx).slice(-2)));
+    h.appendChild(el("h2",null,zone.label)); h.appendChild(el("span","rule")); sec.appendChild(h);
+    if(zone.scope==="filter") sec.appendChild(liveScope(filterScope,["cutoff","filter1_resonance","filter1_mode"]));
+    else if(zone.scope==="env") sec.appendChild(envScope());
+    if(hasMatrix){ sec.appendChild(hasMatrix); }
+    else if(zone.id==="env" && groups.length>=2){
+      var gr=el("div","grprow"); gr.appendChild(groups[0]); gr.appendChild(groups[1]); sec.appendChild(gr);
+      for(var gi=2;gi<groups.length;gi++) sec.appendChild(groups[gi]);
+    } else if(zone.id==="lfo"){
+      for(var li=0;li<groups.length;li+=2){ var box=el("div","lfobox"); box.appendChild(groups[li]); if(groups[li+1]) box.appendChild(groups[li+1]); sec.appendChild(box); }
+    } else { groups.forEach(function(g){ sec.appendChild(g); }); }
+    return sec;
+  }
+
+  /* ---- build / scrollspy / osc-shape dimming ---- */
+  function build(){
+    var main=document.getElementById("main"), rail=document.getElementById("rail"); if(!main) return;
+    main.innerHTML=""; rail.innerHTML=""; zoneEls={}; closeMenu(); var idx=0;
+    ZONES().forEach(function(zone){
+      idx++; var sec=sectionEl(zone, idx); if(!sec) return;
+      main.appendChild(sec); zoneEls[zone.id]=sec;
+      var a=el("a"); a.dataset.zone=zone.id; a.appendChild(el("span","d")); a.appendChild(el("span",null,zone.label));
+      a.onclick=function(){ var y=sec.getBoundingClientRect().top+window.scrollY-100; window.scrollTo({top:Math.max(0,y),behavior:"smooth"}); };
+      rail.appendChild(a);
+    });
+    onValue("osc1_shape",shapeDim); onValue("osc2_shape",shapeDim);
+    shapeDim(); spy(); state.built=true;
+  }
+  function shapeDim(){ var main=document.getElementById("main"); if(!main) return;
+    [1,2].forEach(function(n){ var pulse=val("osc"+n+"_shape")>=64;
+      var w=main.querySelector('[data-pk="osc'+n+'_wave_select"]'); var p=main.querySelector('[data-pk="osc'+n+'_pulsewidth"]');
+      if(w) w.classList.toggle("dim",pulse); if(p) p.classList.toggle("dim",!pulse); });
+  }
+  function spy(){
+    var items=Object.keys(zoneEls).map(function(id){ return {id:id, el:zoneEls[id]}; });
+    function up(){ var line=110, cur=items[0]; if(!cur) return;
+      items.forEach(function(it){ if(it.el.getBoundingClientRect().top-line<=1) cur=it; });
+      var rail=document.getElementById("rail");
+      rail.querySelectorAll("a").forEach(function(a){ a.classList.toggle("on", a.dataset.zone===cur.id); });
+    }
+    if(_spy) window.removeEventListener("scroll",_spy);
+    _spy=up; window.addEventListener("scroll",up,{passive:true}); up();
+  }
+
+  /* ---- model skin + rebuild ---- */
+  function applyModel(lvl){
+    if(lvl==null) lvl=state.level; state.level=lvl;
+    var sk=SKINS[lvl], root=document.documentElement;
+    ["bg","surf","surf2","line","ink","mut","acc","acc2","led","val","track","skirt","ptr","cap1","cap2","chrome","chromeink","chromemut","cheek1","cheek2","lcdbg","lcdink","lcdframe","gloss","wellbd","wellring"].forEach(function(k){ root.style.setProperty("--"+k, sk[k]); });
+    var mn=document.getElementById("mName"); if(mn) mn.textContent=sk.name;
+    ["segA","segB","segC"].forEach(function(id,i){ var s=document.getElementById(id); if(s) s.classList.toggle("on", i===lvl); });
+    rebuild();
+  }
+  function rebuild(){ controls={}; state.built=false; build(); seedValues(); refreshBrowser(); }
+  function maybeRebuildForModel(name){ var lvl=/^c/i.test(name)?2:/^b/i.test(name)?1:0;
+    if(lvl!==state.level || !state.built) applyModel(lvl); }
+
+  /* ---- browser / preset / bank / octave ---- */
+  function refreshBrowser(){
+    var pn=document.getElementById("pName"); if(pn) pn.textContent=state.values["preset_name"]||"—";
+    var pm=document.getElementById("pMeta");
+    if(pm){ var bank=state.values["bank_name"]||"", idx=num(state.values["patch_in_bank"]), cnt=num(state.values["preset_count"]);
+      var s=bank; if(cnt) s+=(bank?" · ":"")+("00"+idx).slice(-3)+" / "+cnt; pm.textContent=s||"—"; }
+    var ov=document.getElementById("oVal"); if(ov){ var o=num(state.values["octave_transpose"]); ov.textContent=(o>0?"+":"")+o; }
+  }
+  function stepPreset(d){ var i=num(state.values["preset"]), c=num(state.values["preset_count"])||1; i=(i+d+c)%c; setParam("preset",i); state.lastPreset=String(i); refreshBrowser(); patchResync(); }
+  function stepOctave(d){ var o=Math.max(-4,Math.min(4,num(state.values["octave_transpose"])+d)); setParam("octave_transpose",o); refreshBrowser(); }
+
+  function applyParamUpdate(params){ if(!params) return; var b=false;
+    Object.keys(params).forEach(function(fk){ var key=fk.indexOf(PREFIX)===0?fk.slice(PREFIX.length):fk; pushValue(key,params[fk]);
+      if(/^(preset|preset_name|preset_count|patch_in_bank|bank_index|bank_name|octave_transpose|rom_model)$/.test(key)) b=true;
+      if(key==="preset"){ var p=String(params[fk]); if(p!==state.lastPreset){ state.lastPreset=p; patchResync(); } }
+      if(key==="bank_index"){ var bk=String(params[fk]); if(bk!==state.lastBank){ state.lastBank=bk; patchResync(); } }
+      if(key==="rom_model") maybeRebuildForModel(params[fk]); });
+    if(b) refreshBrowser();
+  }
+  function resync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} if(state.built) seedValues(); }
+  function metaResync(){ try{ window.parent.postMessage({type:"subscribe"},"*"); }catch(e){} seedMeta(); }
+  function patchResync(){ if(state._rsy) return; state._rsy=1;
+    [200,500,1000,1800].forEach(function(ms){ setTimeout(metaResync,ms); });
+    setTimeout(function(){ state._rsy=0; },1900); }
+  function seedMeta(){
+    ["rom_model","preset","preset_name","preset_count","patch_in_bank","bank_index","bank_name","bank_count","octave_transpose"].forEach(function(k){
+      remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!==""){ if(k==="rom_model")maybeRebuildForModel(v); else state.values[k]=String(v); refreshBrowser(); } }); });
+  }
+  function seedValues(){
+    seedMeta();
+    var keys=Object.keys(controls), i=0;
+    (function next(){ var n=0; while(i<keys.length&&n<24){ (function(k){ remote.getParam(PREFIX+k).then(function(v){ if(v!=null&&v!=="") pushValue(k,v); }); })(keys[i++]); n++; } if(i<keys.length) setTimeout(next,18); })();
+  }
+
+  /* ---- header wiring ---- */
+  document.getElementById("segA").onclick=function(){ applyModel(0); };
+  document.getElementById("segB").onclick=function(){ applyModel(1); };
+  document.getElementById("segC").onclick=function(){ applyModel(2); };
+  document.getElementById("pPrev").onclick=function(){ stepPreset(-1); };
+  document.getElementById("pNext").onclick=function(){ stepPreset(1); };
+  document.getElementById("oDown").onclick=function(){ stepOctave(-1); };
+  document.getElementById("oUp").onclick=function(){ stepOctave(1); };
+  var syncBtn=document.getElementById("syncBtn"), syncLabel=document.getElementById("syncLabel");
+  syncBtn.onclick=function(){ if(syncBtn._busy) return; syncBtn._busy=true;
+    syncBtn.classList.add("syncing"); if(syncLabel) syncLabel.textContent="SYNCING"; resync();
+    setTimeout(function(){ syncBtn.classList.remove("syncing"); if(syncLabel) syncLabel.textContent="SYNCED"; syncBtn._busy=false;
+      setTimeout(function(){ if(syncLabel) syncLabel.textContent="SYNC"; },900); },750); };
+
+  document.addEventListener("pointerdown",function(e){
+    if(_menu && !_menu.contains(e.target) && !(e.target.closest&&e.target.closest(".chip"))) closeMenu(); });
+  // Page scroll is dismissed by the pointerdown-outside handler above (a touch
+  // page-scroll starts with a pointerdown outside the menu). We deliberately do
+  // NOT close on the scroll event: a capture-phase scroll listener also fires
+  // when scrolling INSIDE the menu's own option list (overflow-y:auto) and when
+  // a stray/momentum scroll lands right after reopening — both wrongly dismissed it.
+
+  /* ---- boot: render immediately (default model A), values + real model stream in ---- */
+  remote.onParamChange(applyParamUpdate);
+  applyModel(0);
+  remote.getParam(PREFIX+"rom_model").then(function(v){ maybeRebuildForModel(v||"A"); });
+})();
+</script>
+</body>
+</html>

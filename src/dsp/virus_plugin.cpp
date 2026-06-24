@@ -437,7 +437,10 @@ static const virus_param_t g_params[] = {
     {"chorus_lfo_shape",     "Chorus LFO",       VIRUS_PAGE_A,110, 0,  67, VIRUS_MODEL_ALL, OPTS(opts_lfo_shape)},
 
     /* Page A: Delay / Reverb */
-    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_ALL, OPTS(opts_delay_reverb_mode)},
+    /* Dly/Rev Mode (reverb + delay-pattern selector) is a Virus B/C feature; the
+     * Virus A has no reverb and no mode selector (byte 112 is unused on A). Gate to
+     * B/C so it isn't exposed as a bogus control when running a Virus A ROM. */
+    {"delay_reverb_mode",    "Dly/Rev Mode",     VIRUS_PAGE_A,112, 0,  26, VIRUS_MODEL_BC,  OPTS(opts_delay_reverb_mode)},
     {"effect_send",          "Effect Send",      VIRUS_PAGE_A,113, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"delay_time",           "Delay Time",       VIRUS_PAGE_A,114, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"delay_feedback",       "Delay Fdbk",       VIRUS_PAGE_A,115, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -476,6 +479,10 @@ static const virus_param_t g_params[] = {
     {"filter2_env_polarity", "Flt2 Env Pol",     VIRUS_PAGE_B, 31, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_env_polarity)},
     {"filter2_cutoff_link",  "Flt2 Cut Link",    VIRUS_PAGE_B, 32, 0,   1, VIRUS_MODEL_ALL, OPTS(opts_off_on)},
     {"filter_keytrack_base", "Flt KeyTrk Base",  VIRUS_PAGE_B, 33, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
+    /* Osc FM Mode is available on ALL models (matches upstream + the reference Osirus
+     * plugin) — the Virus A's FM uses the internal modes (Pos-Tri/Tri/Wave/Noise). Do
+     * NOT gate to B/C: that would remove a working A control. (delay_reverb_mode above
+     * IS gated, but with hard evidence — byte 112 is constant on A; FM Mode has none.) */
     {"osc_fm_mode",          "Osc FM Mode",      VIRUS_PAGE_B, 34, 0,  12, VIRUS_MODEL_ALL, OPTS(opts_osc_fm_mode)},
     {"osc_init_phase",       "Osc Init Phase",   VIRUS_PAGE_B, 35, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
     {"punch_intensity",      "Punch",            VIRUS_PAGE_B, 36, 0, 127, VIRUS_MODEL_ALL, NO_OPTS},
@@ -608,6 +615,14 @@ struct virus_shm_t {
     volatile int cc_values_b[128];  /* Page B parameter values */
     uint8_t cc_seen_b[128];         /* Page B parameter seen flags */
 
+    /* Preset-load sync handshake (parent requests, child confirms). A patch
+     * change updates cc_values asynchronously in the child once the emulated
+     * firmware has loaded the new single; get_param("state") blocks briefly on
+     * this so a remote-UI re-read after a preset switch returns the NEW values
+     * instead of the previous patch's. */
+    volatile uint32_t preset_req_gen;   /* parent bumps when it pushes a program change */
+    volatile uint32_t preset_done_gen;  /* child sets = req_gen after it syncs cc_values */
+
     /* Profiling */
     volatile int underrun_count;
     volatile int emu_blocks;
@@ -622,7 +637,7 @@ struct virus_shm_t {
     char module_dir[256];
 
     /* DSP clock percent (parent writes, child reads and applies) */
-    volatile int dsp_clock_percent;  /* 0 = auto (100 for A, 50 for B/C) */
+    volatile int dsp_clock_percent;  /* 0 = auto (100 for A, 45 for B, 35 for C/others) */
     volatile int dsp_clock_applied;  /* last value applied by child */
     char rom_model_name[16];         /* "A", "B", "C", etc. */
 
@@ -641,6 +656,23 @@ struct virus_shm_t {
         volatile uint8_t value;
         volatile uint8_t dirty;
     } pending_params[256];           /* index = page*128 + cc */
+
+    /* --- Self-contained single capture/inject (state portability) ----------
+     * current_single: child dumps the live EditBuffer (512-byte single) here so
+     * the parent can embed the ACTUAL patch in saved state — survives bank/
+     * preset renumbering and deletion. pending_single: parent stages a raw
+     * single for the child to writeSingle() straight into the EditBuffer on
+     * recall, bypassing the fragile bank/preset reference entirely. */
+    volatile uint8_t current_single[512];     /* child keeps this continuously fresh */
+    volatile int current_single_valid;
+    volatile uint8_t pending_single[512];
+    volatile uint32_t pending_single_req_gen; /* parent bumps to inject pending_single */
+    volatile uint32_t pending_single_done_gen;/* child sets = req after writing */
+
+    /* Actual preset count of the current bank (child writes on bank change).
+     * User banks can hold fewer than the global preset_count; the UI/clamps use
+     * this so you can't select a nonexistent preset (which silently failed). */
+    volatile int cur_bank_preset_count;
 };
 
 /* =====================================================================
@@ -702,6 +734,15 @@ static bool param_available_for_model(const virus_param_t *p, const char *model_
     return p->model_min <= level;
 }
 
+/* Display name, adjusted for model. Some FX param labels are dual-purpose on B/C
+ * (delay rate / reverb decay) but the Virus A has only the delay, so drop the
+ * reverb wording on A. */
+static const char *param_display_name(const virus_param_t *p, int model_level) {
+    if (model_level < VIRUS_MODEL_BC && strcmp(p->key, "delay_rate_rev_decay") == 0)
+        return "Delay Rate";
+    return p->name;
+}
+
 static uint8_t bank_index_to_midi_lsb(int bank_index, int bank_count) {
     int idx = bank_index;
     int max_idx = bank_count > 0 ? bank_count - 1 : 0;
@@ -743,6 +784,7 @@ static void midi_fifo_push(virus_shm_t *shm, const uint8_t *msg, int len) {
         shm->midi_buf[wr] = msg[i];
         wr = (wr + 1) % MIDI_FIFO_SIZE;
     }
+    __sync_synchronize();   /* publish payload before the index (ARM weak ordering) */
     shm->midi_write = wr;
 }
 
@@ -788,10 +830,40 @@ struct virus_instance_t {
     char *pending_state;
     int pending_state_valid;
 
+    /* Bug #14: set after a self-contained state restore (which injects a single
+     * into the EditBuffer without a Program Change, leaving current_bank/preset
+     * naming an unloaded slot). Forces the next preset/bank selection to bypass
+     * the "already current" no-op guards so the user isn't stuck on the patch.
+     * Separate flags per axis: a single shared flag would let a same-index *bank*
+     * reselect clear it and re-strand a same-index *preset* reselect (and vice
+     * versa). Each guard clears only its own flag. */
+    int force_next_preset;
+    int force_next_bank;
+
     /* Per-note pressure tracking for polypressure → channel pressure.
      * The Virus only has mono aftertouch (ChanPres), so we convert
      * poly aftertouch by taking the max pressure across active notes. */
     uint8_t note_pressure[128];
+
+    /* The transposed note actually emitted at note-on, indexed by the ORIGINAL
+     * (untransposed) note number; -1 = not held. Note-off replays this exact value
+     * so changing octave_transpose (encoder or state restore) while a key is held
+     * can't strand the voice, and clamp collisions still release. Touched only on
+     * the host SPI thread (on_midi + set_param are serialized there). */
+    int16_t held_note[128];
+
+    /* CR-1 child-liveness watchdog state (render thread). A crashed/hung child
+     * freezes shm->child_alive while the ring drains to permanent silence; we
+     * detect a frozen heartbeat during underrun and kick a respawn. */
+    int wd_alive_last;   /* last-seen child_alive while underrunning */
+    int wd_stall;        /* consecutive underrunning renders with frozen heartbeat */
+
+    /* R1: set when the user edits a param (knob/CC) and cleared on a real preset/bank
+     * load, restore, or child restart. get_state's empty-bail (which protects a good
+     * self-contained slot during the no-valid-single window) fires only when NO user edit
+     * is pending — so edits made before the first preset load still serialize (referential,
+     * matching upstream) instead of being silently dropped. */
+    int params_user_dirty;
 };
 
 /* =====================================================================
@@ -801,6 +873,62 @@ struct virus_instance_t {
 /* Resample ratio: 46875 Hz source → 44100 Hz output */
 static constexpr double RESAMPLE_RATIO = 46875.0 / 44100.0;
 #define RESAMPLE_MAX_OUT (EMU_CHUNK + 4)
+
+typedef struct {
+    double phase;          /* fractional read position in source samples */
+    float  hl[3], hr[3];   /* 3 trailing source samples → leading context next block */
+} resamp_state_t;
+
+/* MAME 4-point cubic basis (TUS mameResamplers): f0(t)=(t-t^3)/6, f1(t)=t+(t^2-t^3)/2;
+ * out = -s0*f0(1-p) + s1*f1(1-p) + s2*f1(p) - s3*f0(p)  (p=0→s1, p=1→s2). */
+static inline float cubic4(float s0, float s1, float s2, float s3, float p) {
+    float q = 1.0f - p;
+    float f0p = (p - p*p*p) * (1.0f/6.0f);
+    float f1p = p + (p*p - p*p*p) * 0.5f;
+    float f0q = (q - q*q*q) * (1.0f/6.0f);
+    float f1q = q + (q*q - q*q*q) * 0.5f;
+    return -s0*f0q + s1*f1q + s2*f1p - s3*f0p;
+}
+
+/* Resample one stereo block of float[-1,1] @46875 → int16 @44100 with gain, using
+ * 4-point cubic interpolation (cleanest / most transparent; A/B-tested vs linear
+ * and a MAME box-lofi mode — cubic won clearly, so it's the only path). */
+static int resample_block(resamp_state_t *st,
+                          const float *proc_l, const float *proc_r,
+                          int n, float gain, int16_t *out, int max_out) {
+    if (n < 3) return 0;
+
+    /* ext = [hist0,hist1,hist2, src...]: a source position p maps to ext[p+3], so a
+     * slightly-negative carried phase reads the deferred boundary samples from history. */
+    float ext_l[3 + EMU_CHUNK], ext_r[3 + EMU_CHUNK];
+    ext_l[0]=st->hl[0]; ext_l[1]=st->hl[1]; ext_l[2]=st->hl[2];
+    ext_r[0]=st->hr[0]; ext_r[1]=st->hr[1]; ext_r[2]=st->hr[2];
+    memcpy(ext_l+3, proc_l, n*sizeof(float));
+    memcpy(ext_r+3, proc_r, n*sizeof(float));
+
+    double phase = st->phase;
+    double limit = (double)n - 2.0;         /* leave room for the s3 (+2) cubic tap */
+    int oc = 0;
+    while (phase < limit && oc < max_out) {
+        int ip = (int)floor(phase);
+        float f = (float)(phase - ip);
+        int b = ip + 3;                     /* ext index of s1 */
+        float l = cubic4(ext_l[b-1], ext_l[b], ext_l[b+1], ext_l[b+2], f);
+        float r = cubic4(ext_r[b-1], ext_r[b], ext_r[b+1], ext_r[b+2], f);
+        int32_t li = (int32_t)(l * gain * 32767.0f);
+        int32_t ri = (int32_t)(r * gain * 32767.0f);
+        if (li > 32767) li = 32767; if (li < -32768) li = -32768;
+        if (ri > 32767) ri = 32767; if (ri < -32768) ri = -32768;
+        out[oc*2+0] = (int16_t)li;
+        out[oc*2+1] = (int16_t)ri;
+        oc++;
+        phase += RESAMPLE_RATIO;
+    }
+    st->phase = phase - (double)n;          /* carry remainder (may be slightly negative) */
+    st->hl[0]=proc_l[n-3]; st->hl[1]=proc_l[n-2]; st->hl[2]=proc_l[n-1];
+    st->hr[0]=proc_r[n-3]; st->hr[1]=proc_r[n-2]; st->hr[2]=proc_r[n-1];
+    return oc;
+}
 
 static void child_send_midi(virusLib::Microcontroller *mc, const uint8_t *msg, int len) {
     if (!mc || len < 1) return;
@@ -899,10 +1027,13 @@ static void child_sync_params_from_preset(virus_shm_t *shm,
         int val = single[offset];
         if (val < g_params[i].min_val) val = g_params[i].min_val;
         if (val > g_params[i].max_val) val = g_params[i].max_val;
-        if (g_params[i].page == VIRUS_PAGE_A)
+        if (g_params[i].page == VIRUS_PAGE_A) {
             shm->cc_values[g_params[i].cc] = val;
-        else
+            shm->cc_seen[g_params[i].cc] = 1;
+        } else {
             shm->cc_values_b[g_params[i].cc] = val;
+            shm->cc_seen_b[g_params[i].cc] = 1;
+        }
     }
 }
 
@@ -930,12 +1061,74 @@ static void child_drain_pending_params(virus_shm_t *shm,
     }
 }
 
+/* Actual number of presets in a bank. User banks may hold fewer than the global
+ * ROM preset_count. Child-side: g_user_banks lives in the forked child. */
+static int bank_preset_count(virus_shm_t *shm, int bank) {
+    if (bank >= g_rom_bank_count && g_user_bank_count > 0) {
+        int ub = bank - g_rom_bank_count;
+        if (ub >= 0 && ub < g_user_bank_count) return g_user_banks[ub].preset_count;
+    }
+    return shm ? shm->preset_count : 0;
+}
+
+/* Self-contained single I/O (state portability). Parent stages a raw single to
+ * inject (recall that doesn't depend on bank/preset indices) and/or requests a
+ * dump of the live EditBuffer for state save. requestSingle(EditBuffer) is
+ * synchronous (returns m_singleEditBuffer), so this captures the true current
+ * sound including live param edits. */
+static void child_handle_single_io(virus_shm_t *shm,
+                                    virusLib::Microcontroller *mc,
+                                    virusLib::ROMFile *rom) {
+    if (!shm || !mc) return;
+
+    /* Inject: write a staged single straight into the EditBuffer. */
+    if (shm->pending_single_req_gen != shm->pending_single_done_gen) {
+        uint32_t req = shm->pending_single_req_gen;
+        virusLib::ROMFile::TPreset single{};
+        for (int i = 0; i < 512; i++) single[i] = shm->pending_single[i];
+        mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
+        child_sync_params_from_preset(shm, single);
+        for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+        __sync_synchronize();   /* publish the 512 bytes before the valid flag */
+        shm->current_single_valid = 1;
+        child_update_preset_name(shm, mc, rom);
+        __sync_synchronize();
+        shm->pending_single_done_gen = req;
+    }
+
+    /* Keep current_single near-fresh so a state read never has to block on a
+     * dump. Throttled — every 8 loop iterations is well under any state-read
+     * cadence (autosave ~10s, saves are user-paced).
+     *
+     * Use peekSingleEditBuffer(), NOT requestSingle(EditBuffer): the latter calls
+     * receiveUpgradedPreset(), which mutates the shared HDI08 TX parser. Driving that
+     * from this emu-loop refresh races the audio thread feeding the same parser via
+     * m_hdi08.exec() and could permanently latch the preset-receive confirmation,
+     * stalling all subsequent preset loads (stuck patch; direct param edits still
+     * work). peekSingleEditBuffer() only copies the cached buffer under the mutex. */
+    static int refresh_ctr = 0;
+    if (++refresh_ctr >= 8 && shm->current_single_valid) {
+        /* Only refresh an ALREADY-loaded patch (capture live param edits). Do NOT let
+         * the passive refresh set current_single_valid from scratch: at boot the child
+         * loads the default preset, and a refresh that flipped valid=1 would let an
+         * autosave persist the DEFAULT single and clobber the real patch's slot file
+         * before the restore inject runs. valid is set only by a real load (Program
+         * Change in child_process_midi_fifo) or a self-contained restore inject above. */
+        refresh_ctr = 0;
+        virusLib::ROMFile::TPreset single{};
+        if (mc->peekSingleEditBuffer(single)) {
+            for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+        }
+    }
+}
+
 static void child_process_midi_fifo(virus_shm_t *shm,
                                     virusLib::Microcontroller *mc,
                                     virusLib::ROMFile *rom,
                                     int max_msgs = 2) {
     int processed = 0;
     while (midi_fifo_available(shm) > 0 && processed < max_msgs) {
+        __sync_synchronize();   /* acquire: read payload only after observing midi_write */
         int rd = shm->midi_read;
         int len = shm->midi_buf[rd];
         rd = (rd + 1) % MIDI_FIFO_SIZE;
@@ -968,7 +1161,13 @@ static void child_process_midi_fifo(virus_shm_t *shm,
         const int change_mask = apply_program_selection_midi(msg, len, shm->bank_count, shm->preset_count, &bank, &preset);
         if (change_mask != PROGRAM_SELECTION_NONE) {
             shm->current_bank = bank;
+            /* Bound the preset to the bank's ACTUAL count — user banks can hold
+             * fewer than the global preset_count, and an out-of-range index was
+             * silently failing to load (leaving the old sound stuck). */
+            int pc_in_bank = bank_preset_count(shm, bank);
+            if (pc_in_bank > 0 && preset >= pc_in_bank) preset = pc_in_bank - 1;
             shm->current_preset = preset;
+            shm->cur_bank_preset_count = pc_in_bank;
             if ((change_mask & PROGRAM_SELECTION_BANK_CHANGED) != 0) {
                 if (bank < g_rom_bank_count)
                     snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %c", 'A' + bank);
@@ -986,11 +1185,30 @@ static void child_process_midi_fifo(virus_shm_t *shm,
             /* Load from the same source we use for the browser cache so names
              * and audible patch content stay in lockstep. */
             virusLib::ROMFile::TPreset single{};
-            if (child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single)) {
+            bool loaded = child_get_single_preset(mc, rom, shm->current_bank, shm->current_preset, &single);
+            if (!loaded && shm->current_preset != 0) {
+                /* Don't silently leave the old patch stuck: fall back to preset
+                 * 0 of this bank so a Program Change always lands somewhere. */
+                vlog("[child] preset %d not found in bank %d (count %d); falling back to 0",
+                     shm->current_preset, shm->current_bank, shm->cur_bank_preset_count);
+                shm->current_preset = 0;
+                loaded = child_get_single_preset(mc, rom, shm->current_bank, 0, &single);
+            }
+            if (loaded) {
                 mc->writeSingle(virusLib::BankNumber::EditBuffer, virusLib::SINGLE, single);
                 child_sync_params_from_preset(shm, single);
+                for (int i = 0; i < 512; i++) shm->current_single[i] = single[i];
+                __sync_synchronize();   /* publish the 512 bytes before the valid flag */
+                shm->current_single_valid = 1;
+            } else {
+                vlog("[child] WARNING: program change could not load bank %d preset %d",
+                     shm->current_bank, shm->current_preset);
             }
             child_update_preset_name(shm, mc, rom);
+            /* Confirm the preset-load sync so a remote-UI state re-read can
+             * block until cc_values reflect the new patch (see get_param). */
+            __sync_synchronize();
+            shm->preset_done_gen = shm->preset_req_gen;
             processed++;
             continue;
         }
@@ -1338,6 +1556,7 @@ static void child_main(virus_shm_t *shm) {
         mc, rom, (int)virusLib::ROMFile::getRomBankCount(rom->getModel()));
     g_rom_bank_count = shm->bank_count;
     shm->preset_count = rom->getPresetsPerBank();
+    shm->cur_bank_preset_count = shm->preset_count;  /* updated per bank on change */
 
     /* 8b. Load user preset banks from banks/ directory */
     {
@@ -1394,6 +1613,7 @@ static void child_main(virus_shm_t *shm) {
     /* 10. Signal ready and enter emu loop */
     shm->initialized = 1;
     shm->loading_complete = 1;
+    __sync_synchronize();   /* publish prefilled ring + init before child_ready (acquire on the parent) */
     shm->child_ready = 1;
     sem_active.store(true);
     notify_timeout.store(0);
@@ -1406,13 +1626,15 @@ static void child_main(virus_shm_t *shm) {
     {
         shm->prof_start_us = now_us();
         float proc_l[EMU_CHUNK], proc_r[EMU_CHUNK];
-        double resample_phase = 0.0;
-        float resample_prev_l = 0.0f, resample_prev_r = 0.0f;
+        resamp_state_t rs; memset(&rs, 0, sizeof(rs));
 
         while (!shm->child_shutdown) {
             /* Process incoming MIDI from parent */
             child_process_midi_fifo(shm, mc, rom);
             child_drain_pending_params(shm, mc);
+            /* Self-contained single dump/inject (after drain so a dump reflects
+             * the latest param edits in the EditBuffer). */
+            child_handle_single_io(shm, mc, rom);
 
             /* Throttle: don't let ring fill beyond target (keeps latency low) */
             if (shm_ring_available(shm) >= RING_TARGET_FILL) {
@@ -1467,35 +1689,11 @@ static void child_main(virus_shm_t *shm) {
                 shm->prof_peak_level = 0.0f;
             }
 
-            /* Resample 46875→44100 */
-            float ext_l[EMU_CHUNK + 1], ext_r[EMU_CHUNK + 1];
-            ext_l[0] = resample_prev_l; ext_r[0] = resample_prev_r;
-            memcpy(ext_l + 1, proc_l, EMU_CHUNK * sizeof(float));
-            memcpy(ext_r + 1, proc_r, EMU_CHUNK * sizeof(float));
-
+            /* Resample 46875→44100 (4-point cubic) */
             float gain = (shm->gain_percent > 0) ? (shm->gain_percent / 100.0f) : OUTPUT_GAIN;
-
             int16_t resampled[RESAMPLE_MAX_OUT * 2];
-            int out_count = 0;
-            while (resample_phase < (double)EMU_CHUNK && out_count < RESAMPLE_MAX_OUT) {
-                double ext_pos = resample_phase + 1.0;
-                int idx = (int)ext_pos;
-                double frac = ext_pos - idx;
-                if (idx >= EMU_CHUNK) break;
-                float l = ext_l[idx] * (float)(1.0 - frac) + ext_l[idx + 1] * (float)frac;
-                float r = ext_r[idx] * (float)(1.0 - frac) + ext_r[idx + 1] * (float)frac;
-                int32_t li = (int32_t)(l * gain * 32767.0f);
-                int32_t ri = (int32_t)(r * gain * 32767.0f);
-                if (li > 32767) li = 32767; if (li < -32768) li = -32768;
-                if (ri > 32767) ri = 32767; if (ri < -32768) ri = -32768;
-                resampled[out_count * 2 + 0] = (int16_t)li;
-                resampled[out_count * 2 + 1] = (int16_t)ri;
-                out_count++;
-                resample_phase += RESAMPLE_RATIO;
-            }
-            resample_phase -= (double)EMU_CHUNK;
-            resample_prev_l = proc_l[EMU_CHUNK - 1];
-            resample_prev_r = proc_r[EMU_CHUNK - 1];
+            int out_count = resample_block(&rs, proc_l, proc_r, EMU_CHUNK, gain,
+                                           resampled, RESAMPLE_MAX_OUT);
 
             /* Write to shared ring buffer */
             if (shm_ring_free(shm) < out_count) continue;
@@ -1505,6 +1703,7 @@ static void child_main(virus_shm_t *shm) {
                 shm->audio_ring[wr * 2 + 1] = resampled[i * 2 + 1];
                 wr = (wr + 1) % AUDIO_RING_SIZE;
             }
+            __sync_synchronize();   /* publish samples before the index (ARM weak ordering) */
             shm->ring_write = wr;
         }
     }
@@ -1609,6 +1808,12 @@ static void kill_child_and_reset(virus_instance_t *inst) {
     shm->prof_peak_level = 0.0f;
     shm->prof_ring_min = 0;
     shm->dsp_clock_applied = 0;
+    /* A4: drop the previous child's single. It belonged to the OLD ROM/child; leaving
+     * it valid lets a get_state in the restart window serialize stale bytes under the
+     * new rom_index and clobber a good slot file (not caught by the empty-state guard).
+     * pending_state replay re-establishes valid=1 with the new child's single. */
+    shm->current_single_valid = 0;
+    inst->params_user_dirty = 0;   /* R1: restart window is protected by the empty bail again */
 }
 
 static void* boot_thread_func(void *arg) {
@@ -1667,6 +1872,7 @@ static void* v2_create_instance(const char *module_dir, const char *json_default
     }
     memset(inst->shm, 0, sizeof(virus_shm_t));
     strncpy((char*)inst->shm->module_dir, module_dir, sizeof(inst->shm->module_dir) - 1);
+    for (int i = 0; i < 128; i++) inst->held_note[i] = -1;  /* no notes held yet */
 
     /* Set default CC values (Virus Page A indices) */
     inst->shm->cc_values[40] = 127;  /* Cutoff */
@@ -1758,10 +1964,28 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
         inst->note_pressure[note] = 0;
     }
 
-    /* Apply octave transpose to notes */
+    /* Apply octave transpose to notes. A note-off must release the SAME transposed
+     * note the note-on sent — otherwise turning the Octave encoder (or a state restore
+     * that changes octave_transpose) while a key is held would compute a different
+     * note-off and strand the voice. So record the emitted note at note-on and replay
+     * it at note-off, rather than recomputing from the (possibly changed) live offset. */
     if ((status == 0x90 || status == 0x80) && len >= 2) {
-        int note = msg[1] + inst->shm->octave_transpose * 12;
-        if (note < 0) note = 0; if (note > 127) note = 127;
+        uint8_t orig = msg[1] & 0x7F;
+        bool note_off = (status == 0x80) || (status == 0x90 && len >= 3 && msg[2] == 0);
+        int note;
+        if (note_off) {
+            if (inst->held_note[orig] >= 0) {
+                note = inst->held_note[orig];
+                inst->held_note[orig] = -1;
+            } else {
+                note = orig + inst->shm->octave_transpose * 12;
+                if (note < 0) note = 0; if (note > 127) note = 127;
+            }
+        } else {
+            note = orig + inst->shm->octave_transpose * 12;
+            if (note < 0) note = 0; if (note > 127) note = 127;
+            inst->held_note[orig] = (int16_t)note;
+        }
         modified[1] = (uint8_t)note;
     }
 
@@ -1769,16 +1993,52 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
     if (status == 0xB0 && len >= 3) {
         inst->shm->cc_values[msg[1] & 0x7F] = msg[2] & 0x7F;
         inst->shm->cc_seen[msg[1] & 0x7F] = 1;
+        if (msg[1] != 0 && msg[1] != 32) inst->params_user_dirty = 1;  /* R1: param-CC edit (not bank select) */
     }
 
     if (status == 0xC0 && len >= 2) {
         clear_param_overrides(inst->shm);
+        inst->params_user_dirty = 0;   /* R1: a preset load supersedes pre-load edits */
     } else if (status == 0xB0 && len >= 3 && (msg[1] == 0 || msg[1] == 32)) {
         clear_param_overrides(inst->shm);
     }
 
     /* Push to shared MIDI FIFO for child to consume */
     midi_fifo_push(inst->shm, modified, n);
+}
+
+static int hex_nibble(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+/* Decode a "key":"<hex>" string field into out[] (up to out_len bytes).
+ * Returns bytes decoded, or -1 if the key is absent. */
+static int json_get_hex(const char *json, const char *key, uint8_t *out, int out_len) {
+    char search[64];
+    /* Match only "key": — NOT "key":" — then skip whitespace before the opening
+     * quote. The host round-trips slot state through a JSON pretty-printer that emits
+     * a space after the colon ("single": "..."), so a hard-coded "key":" never matched
+     * and the embedded single was silently dropped, forcing the fragile reference
+     * recall (wrong/weird sound after a set reload). json_get_int already tolerates
+     * this whitespace; json_get_hex now matches. */
+    snprintf(search, sizeof(search), "\"%s\":", key);
+    const char *p = strstr(json, search);
+    if (!p) return -1;
+    p += strlen(search);
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    if (*p != '"') return -1;
+    p++;
+    int n = 0;
+    while (n < out_len && p[0] && p[0] != '"' && p[1] && p[1] != '"') {
+        int hi = hex_nibble(p[0]), lo = hex_nibble(p[1]);
+        if (hi < 0 || lo < 0) break;
+        out[n++] = (uint8_t)((hi << 4) | lo);
+        p += 2;
+    }
+    return n;
 }
 
 static int json_get_int(const char *json, const char *key, int *out) {
@@ -1792,12 +2052,52 @@ static int json_get_int(const char *json, const char *key, int *out) {
     return 0;
 }
 
+/* Copy src into dst with minimal JSON-string escaping (" and \) so a value
+ * (e.g. a user-bank name) embedded in the state blob can't break the manager's
+ * JSON parse. Always NUL-terminates; truncates safely if it won't fit. */
+static void json_escape_into(char *dst, int cap, const char *src) {
+    int n = 0;
+    for (const char *p = src; *p && n < cap - 2; p++) {
+        if (*p == '"' || *p == '\\') dst[n++] = '\\';
+        dst[n++] = *p;
+    }
+    dst[n] = 0;
+}
+
+/* Bug #15: a saved DSP-clock value is only meaningful for the model it was
+ * captured on. A stale low clock (e.g. Virus B's 45) restored onto a Virus A
+ * (whose safe minimum is 100) starves A's emulated DSP -> underruns/dropouts.
+ * This applies a restored clock to shm->dsp_clock_percent ONLY if it is at or
+ * above the loaded model's safe floor; otherwise it resets to auto (0) so the
+ * child re-derives the correct per-model default. rom_model_name is populated
+ * by the child before it signals child_ready, so it is valid here (including on
+ * the post-ROM-switch state replay from v2_render_block). A clamps to [100,100]
+ * (i.e. always auto unless exactly 100); B/C honor any value >= their default. */
+static void apply_restored_dsp_clock(virus_shm_t *shm, int restored) {
+    if (restored < 10) restored = 10;
+    if (restored > 100) restored = 100;
+    int floor_pct;
+    switch (shm->rom_model_name[0]) {
+        case 'A': floor_pct = 100; break;  /* Virus A: only 100 is safe */
+        case 'B': floor_pct = 45;  break;
+        default:  floor_pct = 35;  break;  /* C and others */
+    }
+    if (restored < floor_pct) {
+        vlog("[parent] restored dsp_clock %d below model %s floor %d -> auto",
+             restored, (const char*)shm->rom_model_name, floor_pct);
+        shm->dsp_clock_percent = 0;  /* auto: child picks model default */
+    } else {
+        shm->dsp_clock_percent = restored;
+    }
+}
+
 static void v2_set_param(void *instance, const char *key, const char *val) {
     virus_instance_t *inst = (virus_instance_t*)instance;
     if (!inst || !inst->shm) return;
     virus_shm_t *shm = inst->shm;
 
     if (strcmp(key, "state") == 0) {
+        inst->params_user_dirty = 0;   /* R1: a restore supersedes any pre-restore edits */
         if (!shm->loading_complete || !shm->child_ready) {
             if (inst->pending_state) free(inst->pending_state);
             inst->pending_state = strdup(val);
@@ -1816,6 +2116,13 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (json_get_int(val, "rom_index", &ival) == 0) {
             if (ival >= 0 && (shm->rom_count == 0 || ival < shm->rom_count) && ival != shm->rom_index) {
                 shm->rom_index = ival;
+                /* Bug #15: reset DSP clock to auto so the restarting child
+                 * re-derives the correct per-model default (A=100, B=45, C=35).
+                 * kill_child_and_reset preserves dsp_clock_percent, so without
+                 * this a stale clock (e.g. B's 45) from pending_state would be
+                 * re-applied verbatim onto a Virus-A child -> underruns/dropouts.
+                 * Mirrors the explicit rom_index setter (search "rom_index" below). */
+                shm->dsp_clock_percent = 0;
                 if (inst->pending_state) free(inst->pending_state);
                 inst->pending_state = strdup(val);
                 inst->pending_state_valid = 1;
@@ -1825,6 +2132,45 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                     pthread_create(&t, nullptr, restart_thread_func, inst);
                     pthread_detach(t);
                 }
+                return;
+            }
+        }
+
+        /* Self-contained recall: if the saved state embeds the actual single
+         * (Tier 2), write it straight into the EditBuffer and skip the fragile
+         * bank/preset reference + per-param overlay entirely. This survives
+         * bank/preset renumbering and deletion. */
+        {
+            uint8_t single_bytes[512];
+            if (json_get_hex(val, "single", single_bytes, 512) == 512) {
+                /* Keep the browser's bank/preset label roughly in sync (cosmetic;
+                 * the audible patch comes from the embedded single). */
+                if (json_get_int(val, "bank", &ival) == 0 && ival >= 0 && ival < shm->bank_count)
+                    shm->current_bank = ival;
+                if (json_get_int(val, "preset", &ival) == 0 && ival >= 0 && ival < shm->preset_count)
+                    shm->current_preset = ival;
+                for (int i = 0; i < 512; i++) shm->pending_single[i] = single_bytes[i];
+                __sync_synchronize();
+                shm->pending_single_req_gen++;
+                if (json_get_int(val, "octave_transpose", &ival) == 0) {
+                    if (ival < -4) ival = -4; if (ival > 4) ival = 4;
+                    shm->octave_transpose = ival;
+                }
+                if (json_get_int(val, "dsp_clock", &ival) == 0) {
+                    apply_restored_dsp_clock(shm, ival);  /* Bug #15: model-guarded */
+                }
+                if (json_get_int(val, "gain", &ival) == 0) {
+                    if (ival < 1) ival = 1; if (ival > 100) ival = 100;
+                    shm->gain_percent = ival;
+                }
+                /* Bug #14: a self-contained restore injects the saved single into
+                 * the EditBuffer but never issues a Program Change, so current_bank/
+                 * current_preset above name a ROM slot that was NOT actually loaded.
+                 * Force the next preset/bank selection to bypass the "already current"
+                 * no-op guards so the user can switch off this edit-buffer patch. */
+                inst->force_next_preset = 1;
+                inst->force_next_bank = 1;
+                shm_refresh_current_preset_name(shm);
                 return;
             }
         }
@@ -1847,6 +2193,10 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         if (has_preset) {
             clear_param_overrides(shm);
             shm->current_preset = preset_from_state;
+            /* Open a preset-sync request before queuing the PC so the child
+             * confirms against this generation once it has loaded the single. */
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t cc32[3] = { 0xB0, 32, bank_index_to_midi_lsb(shm->current_bank, shm->bank_count) };
             midi_fifo_push(shm, cc32, 3);
             uint8_t pc[2] = { 0xC0, (uint8_t)shm->current_preset };
@@ -1857,8 +2207,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             shm->octave_transpose = ival;
         }
         if (json_get_int(val, "dsp_clock", &ival) == 0) {
-            if (ival < 10) ival = 10; if (ival > 100) ival = 100;
-            shm->dsp_clock_percent = ival;
+            apply_restored_dsp_clock(shm, ival);  /* Bug #15: model-guarded */
         }
         if (json_get_int(val, "gain", &ival) == 0) {
             if (ival < 1) ival = 1; if (ival > 100) ival = 100;
@@ -1880,13 +2229,22 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     }
     if (strcmp(key, "preset") == 0) {
         int idx = atoi(val);
-        if (idx >= 0 && idx < shm->preset_count) {
-            if (idx == shm->current_preset) {
+        /* Bound by the current bank's real count (user banks hold fewer than the
+         * global preset_count); the child also re-bounds + falls back. */
+        int pmax = shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count;
+        if (idx >= 0 && idx < pmax) {
+            /* Bug #14: skip the "already current" no-op once after a self-contained
+             * restore, whose current_preset names a slot that was never loaded. */
+            if (idx == shm->current_preset && !inst->force_next_preset) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
+            inst->force_next_preset = 0;
             clear_param_overrides(shm);
+            inst->params_user_dirty = 0;   /* R1: this load supersedes pre-load edits */
             shm->current_preset = idx;
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t pc[2] = { 0xC0, (uint8_t)idx };
             midi_fifo_push(shm, pc, 2);
             shm_refresh_current_preset_name(shm);
@@ -1896,11 +2254,15 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     if (strcmp(key, "bank_index") == 0) {
         int idx = atoi(val);
         if (idx >= 0 && idx < shm->bank_count) {
-            if (idx == shm->current_bank) {
+            /* Bug #14: skip the "already current" no-op once after a self-contained
+             * restore (see force_next_bank), so a bank reselect actually reloads. */
+            if (idx == shm->current_bank && !inst->force_next_bank) {
                 shm_refresh_current_preset_name(shm);
                 return;
             }
+            inst->force_next_bank = 0;
             clear_param_overrides(shm);
+            inst->params_user_dirty = 0;   /* R1: this load supersedes pre-load edits */
             shm->current_bank = idx;
             shm->current_preset = 0;
             if (idx < g_rom_bank_count)
@@ -1909,6 +2271,8 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                 snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "%s", g_user_banks[idx - g_rom_bank_count].name);
             else
                 snprintf((char*)shm->bank_name, sizeof(shm->bank_name), "Bank %d", idx + 1);
+            shm->preset_req_gen++;
+            __sync_synchronize();
             uint8_t cc32[3] = { 0xB0, 32, bank_index_to_midi_lsb(idx, shm->bank_count) };
             midi_fifo_push(shm, cc32, 3);
             uint8_t pc[2] = { 0xC0, 0 };
@@ -1948,6 +2312,12 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
     if (strcmp(key, "dsp_clock") == 0) {
         int v = atoi(val);
         if (v < 10) v = 10; if (v > 100) v = 100;
+        /* Virus A must run at 100% — a sub-100 clock starves A's emulated DSP (underruns),
+         * so pin A here too, mirroring the restore floor in apply_restored_dsp_clock. This
+         * keeps the live setter and restore consistent: you can't set a sub-100 A clock that
+         * would then be silently reset on the next save/restore. (B/C accept their full range
+         * live; restore re-floors them.) */
+        if ((shm->rom_model_name[0] == 'A' || shm->rom_model_name[0] == 'a') && v < 100) v = 100;
         shm->dsp_clock_percent = v;
         return;
     }
@@ -1958,8 +2328,16 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         return;
     }
     if (strcmp(key, "all_notes_off") == 0) {
-        uint8_t msg[3] = { 0xB0, 123, 0 };
-        midi_fifo_push(shm, msg, 3);
+        /* CC123 (All Notes Off) alone respects the sustain pedal and won't cut notes
+         * latched under CC64 or a long release, so a real panic also releases sustain
+         * (CC64=0) and forces All Sound Off (CC120), which ignores sustain/release. */
+        uint8_t sustain_off[3] = { 0xB0, 64, 0 };
+        uint8_t all_sound_off[3] = { 0xB0, 120, 0 };
+        uint8_t all_notes_off[3] = { 0xB0, 123, 0 };
+        midi_fifo_push(shm, sustain_off, 3);
+        midi_fifo_push(shm, all_sound_off, 3);
+        midi_fifo_push(shm, all_notes_off, 3);
+        for (int i = 0; i < 128; i++) inst->held_note[i] = -1;
         return;
     }
     for (int i = 0; i < NUM_PARAMS; i++) {
@@ -1968,6 +2346,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
             if (ival < g_params[i].min_val) ival = g_params[i].min_val;
             if (ival > g_params[i].max_val) ival = g_params[i].max_val;
             send_param_midi(shm, &g_params[i], ival);
+            inst->params_user_dirty = 1;   /* R1: a real user edit is now worth serializing */
             return;
         }
     }
@@ -2176,11 +2555,16 @@ static int build_ui_hierarchy(char *buf, int buf_len, const char *model_name) {
     H_PARAM("chorus_delay", "Chorus Delay");
     H_PARAM("chorus_feedback", "Chorus Fdbk");
     H_PARAM("chorus_lfo_shape", "Chorus LFO");
-    H_PARAM("delay_reverb_mode", "Dly/Rev Mode");
+    /* Dly/Rev Mode exists only on Virus B/C (the A has no reverb / mode selector). */
+    if (model_level >= VIRUS_MODEL_BC)
+        H_PARAM("delay_reverb_mode", "Dly/Rev Mode");
     H_PARAM("effect_send", "Effect Send");
     H_PARAM("delay_time", "Delay Time");
     H_PARAM("delay_feedback", "Delay Fdbk");
-    H_PARAM("delay_rate_rev_decay", "Rate/Decay");
+    if (model_level >= VIRUS_MODEL_BC)
+        H_PARAM("delay_rate_rev_decay", "Rate/Decay");
+    else
+        H_PARAM("delay_rate_rev_decay", "Delay Rate");
     H_PARAM("delay_depth", "Delay Depth");
     H_PARAM("delay_lfo_shape", "Delay LFO");
     H_PARAM("delay_color", "Delay Color");
@@ -2298,7 +2682,8 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
     virus_shm_t *shm = inst->shm;
 
     if (strcmp(key, "preset") == 0) return snprintf(buf, buf_len, "%d", shm->current_preset);
-    if (strcmp(key, "preset_count") == 0) return snprintf(buf, buf_len, "%d", shm->preset_count);
+    if (strcmp(key, "preset_count") == 0) return snprintf(buf, buf_len, "%d",
+        shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count);
     if (strcmp(key, "preset_name") == 0) {
         shm_refresh_current_preset_name(shm);
         return snprintf(buf, buf_len, "%s", (const char*)shm->preset_name);
@@ -2309,7 +2694,12 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
     if (strcmp(key, "bank_name") == 0) return snprintf(buf, buf_len, "%s", (const char*)shm->bank_name);
     if (strcmp(key, "patch_in_bank") == 0) return snprintf(buf, buf_len, "%d", shm->current_preset + 1);
     if (strcmp(key, "octave_transpose") == 0) return snprintf(buf, buf_len, "%d", shm->octave_transpose);
-    if (strcmp(key, "dsp_clock") == 0) return snprintf(buf, buf_len, "%d", shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : (shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : 40));
+    /* Report the user's requested override (dsp_clock_percent) first, not the
+     * lagging dsp_clock_applied. set_param writes percent; the child copies it to
+     * applied a block later. Reading applied here makes a just-set value read back
+     * stale (UI/host see the old number) -> the setting appears to "snap back".
+     * Fall back to applied (then a generic 40) only when percent==0 (auto mode). */
+    if (strcmp(key, "dsp_clock") == 0) return snprintf(buf, buf_len, "%d", shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : (shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40));
     if (strcmp(key, "rom_model") == 0) return snprintf(buf, buf_len, "%s", shm->rom_model_name[0] ? (const char*)shm->rom_model_name : "?");
     if (strcmp(key, "rom_index") == 0) {
         int idx = shm->rom_index;
@@ -2359,18 +2749,86 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             return snprintf(buf, buf_len, "%d", get_param_value(shm, &g_params[i]));
 
     if (strcmp(key, "state") == 0) {
+        /* A preset change updates cc_values asynchronously in the forked DSP
+         * child once the emulated firmware has loaded the new single. Briefly
+         * block here so a remote-UI state re-read right after a preset switch
+         * serializes the NEW patch's values instead of the previous one's.
+         * Capped well under the host's ~200ms param idle timeout. */
+        uint32_t req = shm->preset_req_gen;
+        __sync_synchronize();
+        for (int i = 0; i < 240 && shm->preset_done_gen != req; i++) {
+            usleep(500);
+            __sync_synchronize();
+        }
+        /* If no faithful single has been captured yet (fresh child before any patch
+         * load, or a just-reset shm), return EMPTY rather than a single-less reference
+         * state. The host's autosave preserves the existing good slot_N.json on an empty
+         * read (bailIfEmpty in shadow_ui.js buildSlotPatchJson), so a transient no-single
+         * window can't clobber a faithful self-contained save with a single-less one.
+         * current_single_valid is set only by a real preset load (Program Change) or a
+         * self-contained restore inject, never by the passive boot-default.
+         * R1: but DON'T bail if the user has edited a param in this no-single window —
+         * those edits must serialize (referentially, like upstream) instead of being
+         * silently dropped. params_user_dirty is set on a param edit and cleared on a
+         * real load/restore/restart, so a good slot is still protected when no edit is pending. */
+        if (!shm->current_single_valid && !inst->params_user_dirty) {
+            if (buf_len > 0) buf[0] = '\0';
+            return 0;
+        }
+        __sync_synchronize();   /* acquire: pair with the child's release before valid=1,
+                                 * so the 512 current_single bytes read below aren't torn */
+        /* The embedded single (Tier 2 self-contained recall) is read from
+         * shm->current_single, which the child keeps continuously fresh — no
+         * blocking dump on this read path (autosave stays cheap). */
         int off = 0;
         off += snprintf(buf+off, buf_len-off, "{\"state_version\":%d,\"bank\":%d,\"preset\":%d,\"octave_transpose\":%d",
             VIRUS_STATE_VERSION, shm->current_bank, shm->current_preset, shm->octave_transpose);
-        off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d",
-            shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40,
-            shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index);
-        for (int i = 0; i < NUM_PARAMS; i++) {
+        /* Persist the user's requested override (dsp_clock_percent), not the
+         * lagging dsp_clock_applied -- otherwise an autosave taken right after a
+         * change captures the stale applied value and the subsequent state restore
+         * clobbers the new setting (the value "doesn't stick"). Falls back to
+         * applied (then 40) only in auto mode (percent==0). */
+        off += snprintf(buf+off, buf_len-off, ",\"dsp_clock\":%d,\"gain\":%d,\"rom_index\":%d,\"rom_model\":\"%s\"",
+            shm->dsp_clock_percent > 0 ? shm->dsp_clock_percent : (shm->dsp_clock_applied > 0 ? shm->dsp_clock_applied : 40),
+            shm->gain_percent > 0 ? shm->gain_percent : 70, shm->rom_index,
+            shm->rom_model_name[0] ? (const char*)shm->rom_model_name : "?");
+        /* Preset-browser metadata for the remote UI. getParam in the manager is
+         * cache-only, so these have to ride the bulk state seed (which the host
+         * also re-reads after every preset/bank change) to reach the browser. */
+        char bank_name_esc[64];
+        json_escape_into(bank_name_esc, sizeof(bank_name_esc), (const char*)shm->bank_name);
+        off += snprintf(buf+off, buf_len-off,
+            ",\"bank_index\":%d,\"bank_count\":%d,\"preset_count\":%d,\"patch_in_bank\":%d,\"bank_name\":\"%s\"",
+            shm->current_bank, shm->bank_count,
+            shm->cur_bank_preset_count > 0 ? shm->cur_bank_preset_count : shm->preset_count,
+            shm->current_preset + 1, bank_name_esc);
+        /* Embed the full 512-byte single as hex (1024 chars) BEFORE the ~185 params.
+         * Ordering matters: the host stores the slot state through a fixed buffer that
+         * is smaller than header+single+params, so whatever is serialized LAST gets
+         * truncated away. Recall only needs the single (self-contained Tier-2 path); the
+         * per-param block is just a remote-UI seed and tolerates truncation. Writing the
+         * single first guarantees a faithful patch recall even when the tail is cut. */
+        if (shm->current_single_valid && off + 1024 + 16 < buf_len) {
+            off += snprintf(buf+off, buf_len-off, ",\"single\":\"");
+            for (int i = 0; i < 512 && off + 2 < buf_len; i++) {
+                static const char hexd[] = "0123456789abcdef";
+                uint8_t b = shm->current_single[i];
+                buf[off++] = hexd[b >> 4];
+                buf[off++] = hexd[b & 0xF];
+            }
+            off += snprintf(buf+off, buf_len-off, "\"");
+        }
+        /* Guard the remaining length: snprintf returns the would-be length, so an
+         * unguarded off can pass buf_len and make buf_len-off a huge size_t (OOB).
+         * The single (written first) is what recall needs; truncating the param tail
+         * is acceptable. Matches the chain_params loop's off<buf_len discipline. */
+        for (int i = 0; i < NUM_PARAMS && off < buf_len - 64; i++) {
             if (!is_param_seen(shm, &g_params[i])) continue;
             off += snprintf(buf+off, buf_len-off, ",\"%s\":%d",
                 g_params[i].key, get_param_value(shm, &g_params[i]));
         }
-        off += snprintf(buf+off, buf_len-off, "}");
+        if (off < buf_len - 1)
+            off += snprintf(buf+off, buf_len-off, "}");
         return off;
     }
     if (strcmp(key, "ui_hierarchy") == 0) {
@@ -2393,16 +2851,18 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         off += snprintf(buf+off, buf_len-off, "]},"
             "{\"key\":\"dsp_clock\",\"name\":\"DSP Clock %%\",\"type\":\"int\",\"min\":10,\"max\":100,\"step\":5},"
             "{\"key\":\"gain\",\"name\":\"Gain %%\",\"type\":\"int\",\"min\":1,\"max\":100}");
+        int dlevel = model_name_to_level((const char*)shm->rom_model_name);
         for (int i = 0; i < NUM_PARAMS && off < buf_len - 200; i++) {
             if (!param_available_for_model(&g_params[i], (const char*)shm->rom_model_name))
                 continue;
+            const char *pname = param_display_name(&g_params[i], dlevel);
             if (g_params[i].options && g_params[i].num_options > 0) {
                 int n = g_params[i].num_options;
                 int range = g_params[i].max_val - g_params[i].min_val + 1;
                 if (range < n) n = range;
                 off += snprintf(buf+off, buf_len-off,
                     ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"enum\",\"options\":[",
-                    g_params[i].key, g_params[i].name);
+                    g_params[i].key, pname);
                 for (int j = 0; j < n && off < buf_len - 50; j++) {
                     if (j > 0) off += snprintf(buf+off, buf_len-off, ",");
                     off += snprintf(buf+off, buf_len-off, "\"%s\"", g_params[i].options[j]);
@@ -2411,7 +2871,7 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
             } else {
                 off += snprintf(buf+off, buf_len-off,
                     ",{\"key\":\"%s\",\"name\":\"%s\",\"type\":\"int\",\"min\":%d,\"max\":%d}",
-                    g_params[i].key, g_params[i].name, g_params[i].min_val, g_params[i].max_val);
+                    g_params[i].key, pname, g_params[i].min_val, g_params[i].max_val);
             }
         }
         off += snprintf(buf+off, buf_len-off, "]");
@@ -2425,6 +2885,12 @@ static int v2_get_error(void *instance, char *buf, int buf_len) {
     if (!inst || !inst->shm || inst->shm->load_error[0] == '\0') return 0;
     return snprintf(buf, buf_len, "%s", (const char*)inst->shm->load_error);
 }
+
+/* CR-1: consecutive underrunning render blocks with a FROZEN child heartbeat before
+ * we declare the child dead/hung and respawn. ~hundreds of blocks ≈ ~1s; long enough
+ * that a transient underrun (where the child is alive and child_alive still advances)
+ * never trips it, short enough to recover audio promptly. */
+#define WD_STALL_RESPAWN 400
 
 static void v2_render_block(void *instance, int16_t *out, int frames) {
     virus_instance_t *inst = (virus_instance_t*)instance;
@@ -2449,6 +2915,7 @@ static void v2_render_block(void *instance, int16_t *out, int frames) {
     if (shm->prof_ring_min == 0 || avail < shm->prof_ring_min)
         shm->prof_ring_min = avail;
     int to_read = (avail < frames) ? avail : frames;
+    __sync_synchronize();   /* acquire: pair with the child's release before ring_write */
     int rd = shm->ring_read;
     for (int i = 0; i < to_read; i++) {
         out[i*2+0] = shm->audio_ring[rd*2+0];
@@ -2462,6 +2929,35 @@ static void v2_render_block(void *instance, int16_t *out, int frames) {
         memset(out + to_read * 2, 0, (frames - to_read) * 2 * sizeof(int16_t));
     }
     shm->render_count++;
+
+    /* CR-1: child-liveness watchdog. A crashed/hung child stops advancing child_alive
+     * while the ring drains, after which this path would memset silence forever with no
+     * recovery. Detect a frozen heartbeat DURING underrun (a healthy-but-CPU-starved
+     * child keeps advancing child_alive, so it can't false-trip) and kick the existing
+     * restart path off the audio thread to reap + respawn with the preserved config. */
+    if (to_read < frames) {
+        int a = shm->child_alive;
+        if (a == inst->wd_alive_last) {
+            if (++inst->wd_stall >= WD_STALL_RESPAWN && !inst->boot_thread_running) {
+                inst->wd_stall = 0;
+                snprintf((char*)shm->load_error, sizeof(shm->load_error),
+                         "DSP child stalled — restarting");
+                vlog("[parent] watchdog: child heartbeat frozen, respawning");
+                inst->boot_thread_running = 1;
+                pthread_t t;
+                if (pthread_create(&t, nullptr, restart_thread_func, inst) == 0)
+                    pthread_detach(t);
+                else
+                    inst->boot_thread_running = 0;
+            }
+        } else {
+            inst->wd_alive_last = a;
+            inst->wd_stall = 0;
+        }
+    } else {
+        inst->wd_alive_last = shm->child_alive;
+        inst->wd_stall = 0;
+    }
 }
 
 /* =====================================================================
