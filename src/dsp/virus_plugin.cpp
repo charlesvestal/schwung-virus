@@ -139,6 +139,49 @@ static void vlog(const char *fmt, ...) {
     fflush(g_vlog);
 }
 
+/*
+ * Drop this thread to normal priority, keep it off the SPI core, and NAME it.
+ * Call it as the FIRST statement of every worker.
+ *
+ * Schwung's module entry points run on the SPI audio callback (SCHED_FIFO 70,
+ * core 3), and PTHREAD_INHERIT_SCHED is the POSIX default -- so a thread
+ * created from create_instance or set_param is born REALTIME. Move's own Link
+ * Audio publisher, `Link Main`, runs at SCHED_FIFO 35, so an inherited-priority
+ * worker can starve Move's audio and take the whole device down with it, not
+ * just this plugin.
+ *
+ * Recent hosts build a slot's sound generator on a normal-priority loader
+ * thread, which fixes boot_thread for free -- but NOT the restart threads,
+ * which are created from set_param, and set_param is still the audio callback.
+ * Doing it here covers both, and covers older hosts for both.
+ *
+ * NAMING matters as much as the demotion: a thread with no name inherits its
+ * parent's `comm`, so these reported as `Audio Main/SPI` -- indistinguishable
+ * from the real SPI thread in top, in a thread list, or to us. That
+ * invisibility is why the fleet's realtime threads went unnoticed.
+ *
+ * Backwards compatible: syscalls on a thread we own, so no min_host_version
+ * bump. A no-op where the thread is already SCHED_OTHER.
+ */
+static void virus_worker_thread_setup(const char *name) {
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+#ifdef __linux__
+    if (sched_setscheduler(0, SCHED_OTHER, &sp) != 0)
+        vlog("WARNING: could not drop %s to SCHED_OTHER; it may starve Move's audio", name);
+
+    cpu_set_t set;                      /* keep core 3 free for SPI */
+    CPU_ZERO(&set);
+    CPU_SET(0, &set); CPU_SET(1, &set); CPU_SET(2, &set);
+    sched_setaffinity(0, sizeof(set), &set);
+
+    pthread_setname_np(pthread_self(), name);
+#else
+    pthread_setschedparam(pthread_self(), SCHED_OTHER, &sp);
+    (void)name;
+#endif
+}
+
 /* =====================================================================
  * Virus CC parameter mapping
  * ===================================================================== */
@@ -1849,6 +1892,7 @@ static void kill_child_and_reset(virus_instance_t *inst) {
 static void* boot_thread_func(void *arg) {
     virus_instance_t *inst = (virus_instance_t*)arg;
     virus_shm_t *shm = inst->shm;
+    virus_worker_thread_setup("virus-boot");
 
     vlog("boot thread: waiting 3s for system to stabilize...");
     snprintf((char*)shm->loading_status, sizeof(shm->loading_status), "Waiting...");
@@ -1865,6 +1909,7 @@ static void* boot_thread_func(void *arg) {
 static void* restart_thread_func(void *arg) {
     virus_instance_t *inst = (virus_instance_t*)arg;
     virus_shm_t *shm = inst->shm;
+    virus_worker_thread_setup("virus-restart");
 
     vlog("restart thread: killing child for ROM switch...");
     snprintf((char*)shm->loading_status, sizeof(shm->loading_status), "Switching ROM...");
