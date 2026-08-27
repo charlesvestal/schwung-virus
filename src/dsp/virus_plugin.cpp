@@ -754,6 +754,20 @@ static uint8_t bank_index_to_midi_lsb(int bank_index, int bank_count) {
     return (uint8_t)midi;
 }
 
+/*
+ * Is the emulator still coming up?
+ *
+ * create_instance returns in ~2 ms and the ROM load, DSP boot and warm-up all
+ * happen on the boot thread and in the forked child, so there is a window of
+ * seconds where the instance exists and answers get_param but knows nothing
+ * yet. This is the readiness test the state restore and render_block already
+ * used inline; it is a function now because the name keys below need it too,
+ * and three spellings of one condition is how they drift.
+ */
+static inline bool shm_still_loading(const virus_shm_t *shm) {
+    return !shm || !shm->loading_complete || !shm->child_ready;
+}
+
 static const char *shm_lookup_preset_name(virus_shm_t *shm, int bank, int preset) {
     if (!shm || !shm->preset_name_cache_ready) return nullptr;
     if (bank < 0 || preset < 0) return nullptr;
@@ -769,9 +783,25 @@ static void shm_refresh_current_preset_name(virus_shm_t *shm) {
     const char *name = shm_lookup_preset_name(shm, shm->current_bank, shm->current_preset);
     if (name) {
         snprintf((char*)shm->preset_name, sizeof(shm->preset_name), "%s", name);
-    } else {
-        snprintf((char*)shm->preset_name, sizeof(shm->preset_name), "---");
+        return;
     }
+    /*
+     * "---" is the right answer for a preset slot that genuinely has no name,
+     * and the WRONG one for the several seconds before the ROM is read: the
+     * host puts preset_name in the editor header, so the whole boot showed a
+     * row of dashes with nothing to say it was temporary. Reported from the
+     * device as wanting it to "say loading and not (---)".
+     *
+     * loading_status rather than a fixed word because the boot thread already
+     * maintains it and it is more useful: "Loading ROM...", "Booting DSP...",
+     * "Warming up...". The host truncates to the header width.
+     */
+    if (shm_still_loading(shm) && shm->loading_status[0]) {
+        snprintf((char*)shm->preset_name, sizeof(shm->preset_name), "%s",
+                 (const char*)shm->loading_status);
+        return;
+    }
+    snprintf((char*)shm->preset_name, sizeof(shm->preset_name), "---");
 }
 
 static void midi_fifo_push(virus_shm_t *shm, const uint8_t *msg, int len) {
@@ -2712,6 +2742,10 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         int idx = shm->rom_index;
         if (idx >= 0 && idx < shm->rom_count && shm->rom_names[idx][0])
             return snprintf(buf, buf_len, "%s", shm->rom_names[idx]);
+        /* Same reasoning as preset_name: dashes are an answer, and during the
+         * boot we do not have one. */
+        if (shm_still_loading(shm) && shm->loading_status[0])
+            return snprintf(buf, buf_len, "%s", (const char*)shm->loading_status);
         return snprintf(buf, buf_len, "---");
     }
     if (strcmp(key, "rom_list") == 0) {
@@ -2724,6 +2758,20 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
     }
     if (strcmp(key, "gain") == 0) return snprintf(buf, buf_len, "%d", shm->gain_percent > 0 ? shm->gain_percent : 70);
     if (strcmp(key, "loading_status") == 0) return snprintf(buf, buf_len, "%s", (const char*)shm->loading_status);
+    /*
+     * THE KEY THE HOST ACTUALLY WAITS ON.
+     *
+     * Schwung's shadow UI holds a "Loading..." screen while a component reports
+     * is_loading == "1" (openComponentEditor / the knob grid's contract settle,
+     * src/shadow/shadow_ui.js) rather than falling through to an empty editor.
+     * This module never served the key, so an unserved "" told the host "does
+     * not implement it" and the wait it already knows how to do never ran.
+     *
+     * Must be exactly "1" or "0" — anything else and the host latches
+     * isLoadingSupported=false and never asks again for this component.
+     */
+    if (strcmp(key, "is_loading") == 0)
+        return snprintf(buf, buf_len, "%d", shm_still_loading(shm) ? 1 : 0);
     if (strcmp(key, "debug_info") == 0) {
         int avail = shm_ring_available(shm);
         int blocks = shm->emu_blocks > 0 ? shm->emu_blocks : 1;
