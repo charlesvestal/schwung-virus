@@ -2897,7 +2897,7 @@ static int v2_get_param(void *instance, const char *key, char *buf, int buf_len)
         if (shm->rom_count == 0)
             off += snprintf(buf+off, buf_len-off, "\"(loading)\"");
         off += snprintf(buf+off, buf_len-off, "]},"
-            "{\"key\":\"dsp_clock\",\"name\":\"DSP Clock %%\",\"type\":\"int\",\"min\":10,\"max\":100,\"step\":5},"
+            "{\"key\":\"dsp_clock\",\"short_name\":\"DSP %\",\"name\":\"DSP Clock %%\",\"type\":\"int\",\"min\":10,\"max\":100,\"step\":5},"
             "{\"key\":\"gain\",\"name\":\"Gain %%\",\"type\":\"int\",\"min\":1,\"max\":100}");
         int dlevel = model_name_to_level((const char*)shm->rom_model_name);
         for (int i = 0; i < NUM_PARAMS && off < buf_len - 200; i++) {
