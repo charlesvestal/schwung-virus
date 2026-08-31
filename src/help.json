@@ -22,21 +22,31 @@
     {
       "title": "Setup",
       "lines": [
-        "Upload Virus ROM",
-        "files to the roms/",
-        "folder via the ME",
-        "Installer's asset",
-        "copy feature.",
+        "Copy Virus ROM files",
+        "into the module's",
+        "roms/ folder using",
+        "the Schwung manager",
+        "at move.local:7700.",
         "",
         "Supported formats:",
         " .mid (SysEx dump)",
         " .BIN (raw ROM)",
         "",
-        "Virus A ROMs run at",
-        "full DSP clock.",
-        "Virus B/C ROMs run",
-        "at reduced clock",
-        "(50% of A)."
+        "DSP clock is set",
+        "automatically per",
+        "model, to fit Move's",
+        "CPU:",
+        " Virus A: 100%",
+        " Virus B: 45%",
+        " Virus C: 35%",
+        "",
+        "Settings > DSP Clock",
+        "overrides it, 10 to",
+        "100%. Virus A is",
+        "pinned at 100%.",
+        "B/C values below",
+        "their default reset",
+        "to auto on reload."
       ]
     },
     {
@@ -57,7 +67,31 @@
           ]
         },
         {
-          "title": "Filter",
+          "title": "Sections",
+          "lines": [
+            "The root menu also",
+            "opens these pages:",
+            "",
+            " Bank",
+            " Oscillators",
+            " Filters",
+            " Filter Env",
+            " Amp Env",
+            " LFO 1, LFO 2, LFO 3",
+            " Arpeggiator",
+            " Effects",
+            " Mod Matrix",
+            " Performance",
+            " Settings",
+            "",
+            "Each has its own",
+            "knobs and params.",
+            "The pages below are",
+            "a summary only."
+          ]
+        },
+        {
+          "title": "Filters",
           "lines": [
             "Cutoff: 0-127",
             "Resonance: 0-127",
@@ -73,7 +107,7 @@
           ]
         },
         {
-          "title": "Amp Envelope",
+          "title": "Amp Env",
           "lines": [
             "Attack: 0-127",
             "Decay: 0-127",
