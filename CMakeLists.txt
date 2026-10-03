@@ -64,7 +64,19 @@ target_link_libraries(virus-move-plugin PRIVATE
 )
 
 # Statically link libstdc++ - the Move device may have an older GLIBCXX
-target_link_options(virus-move-plugin PRIVATE -static-libstdc++ -static-libgcc)
+#
+# --exclude-libs,ALL / -fno-gnu-unique: keep dsp.so UNLOADABLE. The static
+# libstdc++ exports ~100 STB_GNU_UNIQUE locale facet ids, and glibc pins any
+# DSO exporting a UNIQUE symbol NODELETE -- dlclose never unmaps it. Measured
+# on a Move 2026-10-03: Dexed stayed mapped after unload and a reload reused
+# the replaced, deleted file. --exclude-libs,ALL keeps every symbol from a
+# static archive (libstdc++.a, gearmulator's libs) out of .dynsym;
+# -fno-gnu-unique covers inline statics in the plugin's own sources. The entry
+# point move_plugin_init_v2 is defined in virus_plugin.cpp, so it stays exported.
+# Check: readelf -W --dyn-syms dsp.so | awk '$5=="UNIQUE"' -> 0.
+target_compile_options(virus-move-plugin PRIVATE -fno-gnu-unique)
+target_link_options(virus-move-plugin PRIVATE -static-libstdc++ -static-libgcc
+    -Wl,--exclude-libs,ALL)
 
 # Output as dsp.so
 set_target_properties(virus-move-plugin PROPERTIES

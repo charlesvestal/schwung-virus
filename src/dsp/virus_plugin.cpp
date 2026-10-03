@@ -855,8 +855,18 @@ static bool is_param_seen(virus_shm_t *shm, const virus_param_t *p) {
 struct virus_instance_t {
     virus_shm_t *shm;
     pid_t child_pid;
+    /* Boot AND restart workers all run on boot_thread and are JOINABLE, never
+     * detached (start_boot_worker). destroy_instance joins whichever is live:
+     * once the host dlclose()s dsp.so it is really unmapped, and a detached
+     * restart worker still sleeping / forking / waiting for the child would
+     * then execute an unmapped page (and touch the freed instance) and take
+     * MoveOriginal down. boot_thread_running only says "a worker is busy";
+     * a worker clears it and is still returning through our code, so it is
+     * never a substitute for the join. */
     pthread_t boot_thread;
     volatile int boot_thread_running;
+    volatile int boot_thread_joinable;   /* boot_thread holds an unjoined thread */
+    volatile int destroying;             /* destroy_instance waiting: workers bail out */
     char *pending_state;
     int pending_state_valid;
 
@@ -1776,7 +1786,7 @@ static int fork_and_wait_child(virus_instance_t *inst) {
     inst->child_pid = pid;
     vlog("fork_and_wait: child forked, pid=%d", (int)pid);
 
-    for (int i = 0; i < 600 && !shm->child_ready; i++) {
+    for (int i = 0; i < 600 && !shm->child_ready && !inst->destroying; i++) {
         int status;
         pid_t res = waitpid(pid, &status, WNOHANG);
         if (res == pid) {
@@ -1788,6 +1798,13 @@ static int fork_and_wait_child(virus_instance_t *inst) {
             return -1;
         }
         usleep(100000);
+    }
+
+    if (!shm->child_ready && inst->destroying) {
+        /* destroy_instance is joining us; it SIGTERM/SIGKILLs and reaps
+         * inst->child_pid itself once we return. */
+        vlog("fork_and_wait: instance destroying, abandoning boot");
+        return -1;
     }
 
     if (!shm->child_ready) {
@@ -1852,9 +1869,10 @@ static void* boot_thread_func(void *arg) {
 
     vlog("boot thread: waiting 3s for system to stabilize...");
     snprintf((char*)shm->loading_status, sizeof(shm->loading_status), "Waiting...");
-    for (int i = 0; i < 3; i++) sleep(1);
+    for (int i = 0; i < 30 && !inst->destroying; i++) usleep(100000);
 
-    fork_and_wait_child(inst);
+    if (!inst->destroying)
+        fork_and_wait_child(inst);
 
     vlog("boot thread: boot complete");
     inst->boot_thread_running = 0;
@@ -1872,13 +1890,32 @@ static void* restart_thread_func(void *arg) {
     kill_child_and_reset(inst);
 
     vlog("restart thread: waiting 1s...");
-    sleep(1);
+    for (int i = 0; i < 10 && !inst->destroying; i++) usleep(100000);
 
-    fork_and_wait_child(inst);
+    if (!inst->destroying)
+        fork_and_wait_child(inst);
 
     vlog("restart thread: restart complete");
     inst->boot_thread_running = 0;
     return nullptr;
+}
+
+/* Start a boot/restart worker on inst->boot_thread. Callers only start one
+ * while boot_thread_running == 0, i.e. the previous worker has finished its
+ * work and is at most returning, so the join here is immediate. Returns 0 on
+ * success. */
+static int start_boot_worker(virus_instance_t *inst, void *(*fn)(void *)) {
+    if (inst->boot_thread_joinable) {
+        pthread_join(inst->boot_thread, nullptr);
+        inst->boot_thread_joinable = 0;
+    }
+    inst->boot_thread_running = 1;
+    if (pthread_create(&inst->boot_thread, nullptr, fn, inst) != 0) {
+        inst->boot_thread_running = 0;
+        return -1;
+    }
+    inst->boot_thread_joinable = 1;
+    return 0;
 }
 
 /* =====================================================================
@@ -1912,8 +1949,7 @@ static void* v2_create_instance(const char *module_dir, const char *json_default
     fprintf(stderr, "Virus: creating instance from %s (fork mode)\n", module_dir);
     snprintf((char*)inst->shm->loading_status, sizeof(inst->shm->loading_status), "Initializing...");
 
-    inst->boot_thread_running = 1;
-    pthread_create(&inst->boot_thread, nullptr, boot_thread_func, inst);
+    start_boot_worker(inst, boot_thread_func);
     return inst;
 }
 
@@ -1922,12 +1958,17 @@ static void v2_destroy_instance(void *instance) {
     if (!inst) return;
     fprintf(stderr, "Virus: destroying\n");
 
-    /* Signal child to shutdown */
+    /* Signal child to shutdown, and any boot/restart worker to bail out */
+    inst->destroying = 1;
     if (inst->shm) inst->shm->child_shutdown = 1;
 
-    /* Wait for boot thread */
-    if (inst->boot_thread_running)
+    /* Join the boot/restart worker -- whether or not it still reports
+     * running, it must have LEFT this library before we return and the host
+     * dlclose()s us. After the join, child_pid names the only child left. */
+    if (inst->boot_thread_joinable) {
         pthread_join(inst->boot_thread, nullptr);
+        inst->boot_thread_joinable = 0;
+    }
 
     /* Kill child process */
     if (inst->child_pid > 0) {
@@ -2157,10 +2198,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
                 inst->pending_state = strdup(val);
                 inst->pending_state_valid = 1;
                 if (shm->child_ready && !inst->boot_thread_running) {
-                    inst->boot_thread_running = 1;
-                    pthread_t t;
-                    pthread_create(&t, nullptr, restart_thread_func, inst);
-                    pthread_detach(t);
+                    start_boot_worker(inst, restart_thread_func);
                 }
                 return;
             }
@@ -2332,10 +2370,7 @@ static void v2_set_param(void *instance, const char *key, const char *val) {
         shm->dsp_clock_percent = 0;
         /* Restart child with new ROM (in background thread) */
         if (!inst->boot_thread_running) {
-            inst->boot_thread_running = 1;
-            pthread_t t;
-            pthread_create(&t, nullptr, restart_thread_func, inst);
-            pthread_detach(t);
+            start_boot_worker(inst, restart_thread_func);
         }
         return;
     }
@@ -2991,12 +3026,7 @@ static void v2_render_block(void *instance, int16_t *out, int frames) {
                 snprintf((char*)shm->load_error, sizeof(shm->load_error),
                          "DSP child stalled — restarting");
                 vlog("[parent] watchdog: child heartbeat frozen, respawning");
-                inst->boot_thread_running = 1;
-                pthread_t t;
-                if (pthread_create(&t, nullptr, restart_thread_func, inst) == 0)
-                    pthread_detach(t);
-                else
-                    inst->boot_thread_running = 0;
+                start_boot_worker(inst, restart_thread_func);
             }
         } else {
             inst->wd_alive_last = a;
