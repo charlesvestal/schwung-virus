@@ -52,6 +52,12 @@ cmake -B build \
     2>&1
 
 # Build
+# dsp.so links with -Wl,--exclude-libs,ALL and -fno-gnu-unique (see
+# CMakeLists.txt): glibc pins any DSO exporting an STB_GNU_UNIQUE symbol
+# NODELETE, so a static-libstdc++ plugin could never be unmapped on dlclose
+# (measured on a Move 2026-10-03: Dexed stayed mapped after unload and a
+# reload reused the replaced, deleted file). Expect 0 from:
+#   readelf -W --dyn-syms build/dsp.so | awk '$5=="UNIQUE"' | wc -l
 echo "Building (this may take a while - JIT compiler is large)..."
 cmake --build build --target virus-move-plugin -j$(nproc) 2>&1
 
