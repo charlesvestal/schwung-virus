@@ -1430,6 +1430,51 @@ static int child_load_user_banks(const char *banks_dir) {
     return g_user_bank_count;
 }
 
+/*
+ * Raise every thread of the emulator child to SCHED_FIFO VIRUS_EMU_RT_PRIO.
+ *
+ * The child used to be realtime BY INHERITANCE: create_instance ran on the
+ * SPI callback (FIFO 70), so the boot worker, the fork and the DSP thread all
+ * inherited it. Schwung 1.7.0 (#605) builds modules on a SCHED_OTHER loader
+ * thread instead, and documents that create_instance inherits SCHED_OTHER --
+ * so the emulator silently became an ordinary process and underran: ~3000
+ * underruns in 22k blocks on a Virus C, heard as crackle and a high whine.
+ * Raised by hand to FIFO 20 on the device, the count stopped moving.
+ *
+ * 20, not the 70 it used to inherit: realtime enough to keep up, but below
+ * Move's own Link Main (FIFO 35), which a busy emulator above it would starve.
+ * Same rung as JE-8086. Cores 0-2 are inherited from the loader.
+ *
+ * Done once the DSP is booted rather than at fork, so the seconds of ROM
+ * decode and DSP boot do not run realtime. Every thread in /proc/self/task,
+ * because the DSP thread already exists by then and a policy set on the
+ * calling thread is not retroactive. The fork kept MoveOriginal's
+ * capabilities (no exec), so this is permitted; a refusal is logged, never
+ * fatal -- the emulator still runs, as it does today.
+ */
+#define VIRUS_EMU_RT_PRIO 20
+
+static void raise_emu_threads(void) {
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = VIRUS_EMU_RT_PRIO;
+    DIR *d = opendir("/proc/self/task");
+    if (!d) {
+        vlog("[child] raise: opendir /proc/self/task failed: %s", strerror(errno));
+        return;
+    }
+    struct dirent *e;
+    while ((e = readdir(d)) != nullptr) {
+        if (e->d_name[0] < '0' || e->d_name[0] > '9') continue;
+        const pid_t tid = (pid_t)atoi(e->d_name);
+        const int rc = sched_setscheduler(tid, SCHED_FIFO, &sp);
+        const int pol = sched_getscheduler(tid);
+        vlog("[child] raise: tid=%d -> FIFO %d rc=%d%s%s policy=%d", (int)tid,
+             VIRUS_EMU_RT_PRIO, rc, rc ? " " : "", rc ? strerror(errno) : "", pol);
+    }
+    closedir(d);
+}
+
 static void child_main(virus_shm_t *shm) {
     g_child_shm = shm;
 
@@ -1660,6 +1705,7 @@ static void child_main(virus_shm_t *shm) {
     snprintf((char*)shm->loading_status, sizeof(shm->loading_status),
              "Ready: %d banks, %d presets/bank", shm->bank_count, shm->preset_count);
     memset((void*)shm->pending_params, 0, sizeof(shm->pending_params));
+    raise_emu_threads();
     vlog("[child] READY! entering emu loop");
 
     /* === Emu loop (runs until shutdown) === */
@@ -2003,8 +2049,12 @@ static void v2_on_midi(void *instance, const uint8_t *msg, int len, int source) 
 
     uint8_t status = msg[0] & 0xF0;
 
-    /* Log non-note MIDI */
-    if (status != 0x90 && status != 0x80 && len >= 2)
+    /* Log non-note MIDI -- but not the continuous streams. vlog opens and
+     * fflushes a file, and this runs on the SPI callback: Move's pads send
+     * poly aftertouch for as long as a pad is held, which was a line per
+     * value, dozens a second. */
+    if (status != 0x90 && status != 0x80 && status != 0xA0 && status != 0xD0 &&
+        status != 0xE0 && len >= 2)
         vlog("[midi-in] raw=0x%02X status=0x%02X d1=%d d2=%d len=%d",
              msg[0], status, msg[1], len > 2 ? msg[2] : 0, len);
 
