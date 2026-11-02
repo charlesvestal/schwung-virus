@@ -67,6 +67,16 @@ mkdir -p dist/osirus
 
 # Copy files to dist
 cat src/module.json > dist/osirus/module.json
+
+# Licence texts. dsp.so is GPL-3.0 (gearmulator / dsp56300) and statically
+# links libresample (BSD-3-Clause, notice required in binary redistributions)
+# and asmjit (Zlib). Unconditional: a missing file must fail the build rather
+# than ship a tarball without its licences.
+GEARMULATOR_SRC=libs/gearmulator/source
+mkdir -p dist/osirus/licenses
+cat LICENSE > dist/osirus/LICENSE
+cat "$GEARMULATOR_SRC/libresample/LICENSE-BSD.txt" > dist/osirus/licenses/libresample-BSD-3-Clause.txt
+cat "$GEARMULATOR_SRC/dsp56300/source/asmjit/LICENSE.md" > dist/osirus/licenses/asmjit-Zlib.txt
 [ -f src/help.json ] && cat src/help.json > dist/osirus/help.json
 cat src/ui.js > dist/osirus/ui.js
 [ -f src/web_ui.html ] && cat src/web_ui.html > dist/osirus/web_ui.html
