@@ -2,7 +2,7 @@
     "id": "osirus",
     "name": "Osirus",
     "abbrev": "OS",
-    "version": "0.6.5",
+    "version": "0.6.6",
     "description": "Access Virus DSP56300 emulator (Gearmulator)",
     "author": "dsp56300/gearmulator (port: charlesvestal)",
     "license": "GPL-3.0",
